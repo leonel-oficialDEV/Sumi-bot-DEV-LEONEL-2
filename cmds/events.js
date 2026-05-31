@@ -14,7 +14,7 @@ function resolveEventParticipant(p, sock) {
 export default async (sock, msg) => {
   sock.ev.on('group-participants.update', async (anu) => {
     try {
-      if (['add', 'remove', 'leave', 'promote', 'demote'].includes(anu.action)) {
+      if (['remove', 'leave', 'promote', 'demote'].includes(anu.action)) {
         deleteCachedMeta(anu.id);
       }
       const metadata = await sock.groupMetadata(anu.id).catch(() => null);
