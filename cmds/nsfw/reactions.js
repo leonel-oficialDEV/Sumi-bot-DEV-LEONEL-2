@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import fs from 'fs';
+import db from '#db';
 
 const captions = {      
   anal: (from, to) => from === to ? 'se la metió en el ano.' : 'se la metió en el ano a',
@@ -82,14 +83,14 @@ export default {
   category: 'nsfw',
   description: 'Comandos de reacciones NSFW entre usuarios.',
   run: async ({ msg, sock, usedPrefix, command }) => {
-    const chat = global.db.data.chats[msg.chat];
+    const chat = db.getChat(msg.chat);
     if (!chat.nsfw) return msg.reply(`ꕥ El contenido *NSFW* está desactivado en este grupo.\n\nUn *administrador* puede activarlo con el comando:\n» *${usedPrefix}nsfw on*`);
     const currentCommand = Object.keys(alias).find(key => alias[key].includes(command)) || command;
     if (!captions[currentCommand]) return;
     const who = msg.mentionedJid?.[0] || msg.quoted?.sender || msg.sender;
-    const from = global.db.data.users[msg.sender];
+    const from = db.getUser(msg.sender);
     const fromName = from?.name || '@'+msg.sender.split('@')[0];    
-    const to = global.db.data.users[who];
+    const to = db.getUser(who);
     const toName = to?.name || '@'+who.split('@')[0];
     const captionText = captions[currentCommand](fromName, toName);
     const caption = who !== msg.sender ? `\`${fromName}\` ${captionText} \`${toName}.\` ${getRandomSymbol()}.` : `\`${fromName}\` ${captionText} ${getRandomSymbol()}.`;

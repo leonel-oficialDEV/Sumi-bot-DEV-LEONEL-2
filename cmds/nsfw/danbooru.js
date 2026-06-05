@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'
+import db from '#db';
 
 export default {
   command: ['danbooru', 'dbooru'],
@@ -6,7 +7,7 @@ export default {
   description: 'Buscar imágenes en Danbooru.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     try {
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (!chat.nsfw) return msg.reply(`ꕥ El contenido *NSFW* está desactivado en este grupo.\n\nUn *administrador* puede activarlo con el comando:\n» *${usedPrefix}nsfw on*`)
       if (!args[0]) return sock.reply(msg.chat, `《✧》 Debes especificar tags para buscar\n> Ejemplo » *${usedPrefix + command} neko*`, msg)
       await msg.react('🕒')
