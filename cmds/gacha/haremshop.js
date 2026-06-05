@@ -1,11 +1,12 @@
+import db from '#db';
 export default {
   command: ['wshop', 'haremshop', 'tiendawaifus'],
   category: 'gacha',
   description: 'Ver los personajes en venta.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     const chatId = msg.chat;
-    (global.db.data.chats[chatId].sales ??= {});
-    let chat = global.db.data.chats[chatId];
+    db.setCreate('chats', chatId, 'sales', {});
+    let chat = db.getChat(chatId);
     if (chat.adminonly || !chat.gacha) {
       return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con:\n» *${usedPrefix}gacha on*`);
     }
@@ -22,7 +23,7 @@ export default {
         }
       }
       if (cambios) {
-        global.db.data.chats[chatId].sales = chat.sales;
+        db.setChat(chatId, 'sales', chat.sales);
       }
       const ventas = Object.entries(chat.sales || {});      
       if (!ventas.length) {
@@ -36,7 +37,7 @@ export default {
         return msg.reply(`ꕥ Página inválida. Solo hay *${totalPaginas}* disponible${totalPaginas > 1 ? 's' : ''}.`);
       }
       const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-      const settings = global.db.data.settings[botId];
+      const settings = db.getSettings(botId);
       const currency = settings?.currency;
       const listado = [];
       for (const [id, venta] of ventas.slice((page - 1) * porPagina, page * porPagina)) {
@@ -46,9 +47,9 @@ export default {
         const h = Math.floor(tiempoRestante % 86400000 / 3600000);
         const m_ = Math.floor(tiempoRestante % 3600000 / 60000);
         const s = Math.floor(tiempoRestante % 60000 / 1000);
-        const vendedorGlobal = global.db.data.users[venta.user];
+        const vendedorGlobal = db.getUser(venta.user);
         let vendedor = vendedorGlobal?.name?.trim() || venta.user.split('@')[0];
-        const character = global.global.db.data.characters[id];
+        const character = db.getCharacter(id);
         const valorFinal = character?.value || 0;
         listado.push(`❀ *${venta.name}* (✰ ${valorFinal.toLocaleString()}):\n⛁ Precio » *${precios}*\n❖ Vendedor » *${vendedor}*\nⴵ Expira en » *${d}d ${h}h ${m_}m ${s}s*`);
       }

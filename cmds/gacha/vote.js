@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -22,19 +23,19 @@ export default {
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     try {
       const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-      const settings = global.db.data.settings[botId];
-      const isOficialBot = botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
+      const settings = db.getSettings(botId);
+      const isOficialBot = botId === ((global.sock?.user?.id?.split(':')[0] ?? null) && ((global.sock?.user?.id?.split(':')[0] ?? null) && (global.sock.user.id.split(':')[0] + '@s.whatsapp.net')));
       const isPremiumBot = settings?.botprem === 1;
       const isModBot = settings?.botmod === 1;
       if (!isOficialBot && !isPremiumBot && !isModBot) {
         return sock.reply(msg.chat, `《✧》El comando *${command}* no está disponible en *Sub-Bots.*`, msg);
       }
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }
-      (global.db.data.users[msg.sender].lastVote ??= 0);
-      const user = global.db.data.users[msg.sender];
+      db.setCreate('users', msg.sender, 'lastVote', 0);
+      const user = db.getUser(msg.sender);
       const now = Date.now();
       const cooldown = 1 * 60 * 60 * 1000;
       if (user.lastVote && now < user.lastVote) {
@@ -56,7 +57,7 @@ export default {
       if (!character) {
         return msg.reply(`ꕥ Personaje no encontrado. Asegúrate de que el nombre esté correcto.`);
       }      
-      let characterData = global.db.data.characters[character.id];      
+      let characterData = db.getCharacter(character.id);      
       if (!characterData) {
         characterData = { name: character.name, value: Number(character.value || 0), votes: 0, dailyIncrement: {} };
       }      
@@ -83,8 +84,8 @@ export default {
       characterData.votes = (characterData.votes || 0) + 1;
       characterData.lastVotedAt = now;
       characterData.dailyIncrement[today] = currentValue + increment;      
-      global.db.data.characters[character.id] = characterData;
-      global.db.data.users[msg.sender].lastVote = now + cooldown;      
+      db.setCharacter(character.id, characterData);
+      db.setUser(msg.sender, 'lastVote', now + cooldown);      
       const source = getSeriesNameByCharacter(structure, character.id);
       await sock.reply(msg.chat, `❀ Votaste por *${characterData.name}* (*${source}*)\n> Su nuevo valor es *${characterData.value.toLocaleString()}*`, msg);      
     } catch (e) {

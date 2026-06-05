@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -17,12 +18,12 @@ export default {
   description: 'Reclamar un personaje.',
   run: async ({ msg, sock, usedPrefix, command, text }) => {
     try {
-      let chat = global.db.data.chats[msg.chat];
+      let chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con:\n» *${usedPrefix}gacha on*`);
       }
-      (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastClaim ??= 0));
-      let user = global.db.data.chats[msg.chat]?.users?.[msg.sender];
+      db.setCreate('chat_users', [msg.chat, msg.sender], 'lastClaim', 0);
+      let user = db.getChatUser(msg.chat, msg.sender);
       const me = user;
       const now = Date.now();
       const claimCooldown = 30 * 60 * 1000;
@@ -47,12 +48,12 @@ export default {
       const sourceData = getCharacterById(id, structure);
       if (!sourceData) return msg.reply('ꕥ Personaje no encontrado en characters.json');
 
-      (global.db.data.characters[charKey] ||= {}, global.db.data.characters[charKey].name ??= sourceData.name, global.db.data.characters[charKey]);
-      let character = global.global.db.data.characters[charKey];
+      db.setCreate('characters', charKey, 'name', sourceData.name);
+      let character = db.getCharacter(charKey);
       if (!character) character = { name: sourceData.name, value: sourceData.value || 0, votes: 0 };
 
       if (character.reservedBy && character.reservedBy !== msg.sender && now < character.reservedUntil) {
-        const reserver = global.db.data.users[character.reservedBy];
+        const reserver = db.getUser(character.reservedBy);
         const reserverName = reserver?.name || character.reservedBy.split('@')[0];
         const remaining = ((character.reservedUntil - now) / 1000).toFixed(1);
         return msg.reply(`ꕥ Este personaje está protegido por *${reserverName}* durante *${remaining}s.*`);
@@ -62,7 +63,7 @@ export default {
         return msg.reply(`ꕥ El personaje ha expirado » ${expiredTime}s.`);
       }
       if (character.user) {
-        const owner = global.db.data.users[character.user];
+        const owner = db.getUser(character.user);
         const ownerName = owner?.name || `@${character.user.split('@')[0]}`;
         return msg.reply(`ꕥ El personaje *${character.name}* ya ha sido reclamado por *${ownerName}*`);
       }
@@ -70,18 +71,18 @@ export default {
       character.claimedAt = now;
       delete character.reservedBy;
       delete character.reservedUntil;
-      global.global.db.data.characters[charKey] = character;
+      db.setCharacter(charKey, character);
 
       if (!Array.isArray(me.characters)) me.characters = [];
       if (!me.characters.includes(id)) me.characters.push(id);
-      global.db.data.chats[msg.chat].users[msg.sender].characters = me.characters;
-      global.db.data.chats[msg.chat].users[msg.sender].lastClaim = now + claimCooldown;
+      db.setChatUser(msg.chat, msg.sender, 'characters', me.characters);
+      db.setChatUser(msg.chat, msg.sender, 'lastClaim', now + claimCooldown);
       chat.rolls[quotedId].claimed = true;
-      global.db.data.chats[msg.chat].rolls = chat.rolls;
-      const userGlobal = global.db.data.users[msg.sender];
+      db.setChat(msg.chat, 'rolls', chat.rolls);
+      const userGlobal = db.getUser(msg.sender);
       const displayName = userGlobal?.name || msg.sender.split('@')[0];
-      (global.db.data.users[msg.sender].claimMessage ??= '');
-      const userWithMessage = global.db.data.users[msg.sender];
+      db.setCreate('users', msg.sender, 'claimMessage', '');
+      const userWithMessage = db.getUser(msg.sender);
       const custom = userWithMessage?.claimMessage;
       const duration = ((now - character.expiresAt + 60000) / 1000).toFixed(1);
       const finalMessage = custom

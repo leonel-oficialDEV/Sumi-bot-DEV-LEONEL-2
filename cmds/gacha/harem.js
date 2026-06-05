@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -17,17 +18,17 @@ export default {
   description: 'Ver tus personajes reclamados.',
   run: async ({ msg, sock, args, usedPrefix, command, text }) => {
     try {
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }      
       const userId = msg.mentionedJid?.[0] || msg.quoted?.sender || msg.sender;
-      const userGlobal = global.db.data.users[userId];
+      const userGlobal = db.getUser(userId);
       const name = userGlobal?.name || userId.split('@')[0];      
       const structure = await loadCharacters();
       const allCharacters = flattenCharacters(structure);
       let ownedIDs = [];
-      const userData = global.db.data.chats[msg.chat]?.users?.[userId];
+      const userData = db.getChatUser(msg.chat, userId);
       if (userData && userData.characters) {
         if (typeof userData.characters === 'string') {
           try { userData.characters = JSON.parse(userData.characters); } catch { userData.characters = []; }
@@ -41,8 +42,8 @@ export default {
       }
       const charactersWithValues = [];
       for (const id of ownedIDs) {
-        const globalChar = global.global.db.data.characters[id];
-        const chatChar = global.global.db.data.characters[msg.chat + '__' + id];
+        const globalChar = db.getCharacter(id);
+        const chatChar = db.getCharacter(msg.chat + '__' + id);
         const value = typeof globalChar?.value === 'number' ? globalChar.value : chatChar?.value || 0;
         charactersWithValues.push({ id, value });
       }
@@ -61,8 +62,8 @@ export default {
       message += `♡ Personajes: *(${sortedIDs.length})*\n\n`;
       for (let i = start; i < end; i++) {
         const id = sortedIDs[i];
-        const globalChar2 = global.global.db.data.characters[id];
-        const chatChar2 = global.global.db.data.characters[msg.chat + '__' + id];
+        const globalChar2 = db.getCharacter(id);
+        const chatChar2 = db.getCharacter(msg.chat + '__' + id);
         const jsonRec = allCharacters.find(c => c.id === id);
         const charName = jsonRec?.name || chatChar2?.name || globalChar2?.name || `ID:${id}`;
         const value = typeof globalChar2?.value === 'number' ? globalChar2.value : chatChar2?.value || 0;

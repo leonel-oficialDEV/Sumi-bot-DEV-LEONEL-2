@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const file = './core/characters.json';
 
@@ -12,7 +13,7 @@ function flattenCharacters(data) {
 }
 
 const getDisplayName = async (jid) => {
-  const user = global.db.data.users[jid];
+  const user = db.getUser(jid);
   return user?.name?.trim() || jid.split('@')[0];
 };
 
@@ -36,8 +37,8 @@ export default {
       const chatId = msg.chat;
       const keyA = chatId + '__' + data.give;
       const keyB = chatId + '__' + data.get;
-      let pA = global.global.db.data.characters[keyA];
-      let pB = global.global.db.data.characters[keyB];
+      let pA = db.getCharacter(keyA);
+      let pB = db.getCharacter(keyB);
       if (!pA || !pB || pA.user !== data.from || pB.user !== data.to) {
         delete pendingTrade[key];
         await msg.reply(`⚠︎ Uno de los personajes ya no está disponible para el intercambio.`);
@@ -45,23 +46,23 @@ export default {
       }
       pA.user = data.to;
       pB.user = data.from;
-      global.global.db.data.characters[keyA] = pA;
-      global.global.db.data.characters[keyB] = pB;
-      let sender = global.db.data.chats[chatId]?.users?.[data.from];
-      let receiver = global.db.data.chats[chatId]?.users?.[data.to];
+      db.setCharacter(keyA, pA);
+      db.setCharacter(keyB, pB);
+      let sender = db.getChatUser(chatId, data.from);
+      let receiver = db.getChatUser(chatId, data.to);
       if (!receiver.characters.includes(data.give)) receiver.characters.push(data.give);
       if (!sender.characters.includes(data.get)) sender.characters.push(data.get);
       sender.characters = sender.characters.filter(id => id !== data.give);
       receiver.characters = receiver.characters.filter(id => id !== data.get);
-      global.db.data.chats[chatId].users[data.from].characters = sender.characters;
-      global.db.data.chats[chatId].users[data.to].characters = receiver.characters;
+      db.setChatUser(chatId, data.from, 'characters', sender.characters);
+      db.setChatUser(chatId, data.to, 'characters', receiver.characters);
       if (sender.favorite === data.give) {
-        global.db.data.chats[chatId].users[data.from].favorite = '';
-        global.db.data.users[data.from].favorite = '';
+        db.setChatUser(chatId, data.from, 'favorite', '');
+        db.setUser(data.from, 'favorite', '');
       }
       if (receiver.favorite === data.get) {
-        global.db.data.chats[chatId].users[data.to].favorite = '';
-        global.db.data.users[data.to].favorite = '';
+        db.setChatUser(chatId, data.to, 'favorite', '');
+        db.setUser(data.to, 'favorite', '');
       }
       clearTimeout(data.timeout);
       delete pendingTrade[key];
@@ -77,9 +78,9 @@ export default {
     try {
       const chatId = msg.chat;
       const userId = msg.sender;
-      (global.db.data.chats[chatId].intercambios ??= []);
-      (global.db.data.chats[chatId].timeTrade ??= 0);
-      const chat = global.db.data.chats[chatId];
+      db.setCreate('chats', chatId, 'intercambios', []);
+      db.setCreate('chats', chatId, 'timeTrade', 0);
+      const chat = db.getChat(chatId);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }
@@ -101,21 +102,21 @@ export default {
       }
       const keyA = chatId + '__' + idA;
       const keyB = chatId + '__' + idB;
-      const pA = global.global.db.data.characters[keyA];
-      const pB = global.global.db.data.characters[keyB];
+      const pA = db.getCharacter(keyA);
+      const pB = db.getCharacter(keyB);
       if (!pA || !pB) return msg.reply(`ꕥ No se encontraron datos de los personajes.`);
       if (pB.user === userId) return msg.reply(`ꕥ El personaje *${pB.name}* ya está reclamado por ti.`);
       if (!pB.user) return msg.reply(`ꕥ El personaje *${pB.name}* no está reclamado por nadie.`);
       if (!pA.user || pA.user !== userId) return msg.reply(`ꕥ *${pA.name}* no está reclamado por ti.`);
       const receiverId = pB.user;
-      const globalA = global.global.db.data.characters[idA] || {};
-      const globalB = global.global.db.data.characters[idB] || {};
+      const globalA = db.getCharacter(idA) || {};
+      const globalB = db.getCharacter(idB) || {};
       const valueA = typeof globalA.value === 'number' ? globalA.value : pA.value || 0;
       const valueB = typeof globalB.value === 'number' ? globalB.value : pB.value || 0;
       const senderName = await getDisplayName(userId);
       const receiverName = await getDisplayName(receiverId);
       pendingTrade[receiverId] = { from: userId, to: receiverId, chat: chatId, give: idA, get: idB, timeout: setTimeout(() => delete pendingTrade[receiverId], 60000) };
-      global.db.data.chats[chatId].timeTrade = Date.now( + 60000);
+      db.setChat(chatId, 'timeTrade', Date.now() + 60000);
       await sock.sendMessage(chatId, { text: `「✿」 *${receiverName}*, *${senderName}* te ha enviado una solicitud de intercambio.\n\n✦ [${receiverName}] *${pB.name}* (${valueB.toLocaleString()})\n✦ [${senderName}] *${pA.name}* (${valueA.toLocaleString()})\n\n✐ Para aceptar responde con *aceptar*, la solicitud expira en 60 segundos.`, mentions: [userId, receiverId] }, { quoted: msg });
     } catch (e) {
       return msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*.\n> [Error: *${e.message}*]`);

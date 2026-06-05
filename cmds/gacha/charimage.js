@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const FILE_PATH = './core/characters.json';
 
@@ -56,7 +57,7 @@ export default {
   description: 'Ver una imagen aleatoria de un personaje.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     try {
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }

@@ -1,3 +1,4 @@
+import db from '#db';
 export default {
   command: ['removesale', 'removerventa'],
   category: 'gacha',
@@ -5,8 +6,8 @@ export default {
   run: async ({ msg, args, usedPrefix, command }) => {
     const chatId = msg.chat;
     const userId = msg.sender;
-    (global.db.data.chats[chatId].sales ??= {});
-    let chat = global.db.data.chats[chatId];
+    db.setCreate('chats', chatId, 'sales', {});
+    let chat = db.getChat(chatId);
     if (chat.adminonly || !chat.gacha) {
       return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con:\n» *${usedPrefix}gacha on*`);
     }
@@ -23,7 +24,7 @@ export default {
         return msg.reply(`ꕥ El personaje *${args.join(' ')}* no está a la venta por ti.`);
       }      
       delete chat.sales[idRemove];
-      global.db.data.chats[chatId].sales = chat.sales;
+      db.setChat(chatId, 'sales', chat.sales);
       msg.reply(`❀ *${args.join(' ')}* ha sido eliminado de la lista de ventas.`);      
     } catch (e) {
       await msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`);

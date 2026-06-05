@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -16,16 +17,16 @@ export default {
   category: 'gacha',
   description: 'Establecer tu claim favorito.',
   run: async ({ msg, args, usedPrefix, command }) => {
-    const chat = global.db.data.chats[msg.chat];    
+    const chat = db.getChat(msg.chat);    
     if (chat.adminonly || !chat.gacha) {
       return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
     }    
     if (!args.length) {
       return msg.reply(`❀ Debes especificar un personaje.\n> Ejemplo » *${usedPrefix + command} Yuki Suou*`);
     }
-    (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].favorite ??= ''));
-    (global.db.data.users[msg.sender].favorite ??= '');    
-    let user = global.db.data.chats[msg.chat]?.users?.[msg.sender];    
+    db.setCreate('chat_users', [msg.chat, msg.sender], 'favorite', '');
+    db.setCreate('users', msg.sender, 'favorite', '');    
+    let user = db.getChatUser(msg.chat, msg.sender);    
     if (!Array.isArray(user.characters)) user.characters = [];    
     try {
       const structure = await loadCharacters();
@@ -36,10 +37,10 @@ export default {
       const isClaimed = user.characters.includes(character.id);
       if (!isClaimed) return msg.reply(`ꕥ El personaje *${character.name}* no está reclamado por ti.`);
       const previousId = user.favorite;
-      global.db.data.chats[msg.chat].users[msg.sender].favorite = character.id;
-      global.db.data.users[msg.sender].favorite = character.id;
+      db.setChatUser(msg.chat, msg.sender, 'favorite', character.id);
+      db.setUser(msg.sender, 'favorite', character.id);
       if (previousId && previousId !== character.id) {
-        const prevChar = global.global.db.data.characters[previousId];
+        const prevChar = db.getCharacter(previousId);
         const prevName = prevChar?.name || 'personaje anterior';
         return msg.reply(`❀ Se ha reemplazado tu favorito *${prevName}* por *${character.name}*!`);
       }      

@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -13,7 +14,7 @@ export default {
   description: 'Información de un anime.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     try {
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }      
@@ -37,7 +38,7 @@ export default {
       }
       let list = Array.isArray(seriesData.characters) ? seriesData.characters : [];
       const total = list.length;     
-      const allChatUsers = Object.values(global.db.data.chats[msg.chat]?.users || {});
+      const allChatUsers = db.getChatUser(msg.chat);
       for (const u of allChatUsers) {
         if (u.characters && typeof u.characters === 'string') {
           try { u.characters = JSON.parse(u.characters); } catch { u.characters = []; }
@@ -45,7 +46,7 @@ export default {
       }
       const claimedList = list.filter(c => allChatUsers.some(u => Array.isArray(u.characters) && u.characters.includes(c.id)));
       for (const c of list) {
-        const character = global.db.data.characters[c.id];
+        const character = db.getCharacter(c.id);
         if (character) {
           c.value = character.value || Number(c.value || 0);
         } else {
@@ -69,7 +70,7 @@ export default {
         const ownerEntry = allChatUsers.find(u => Array.isArray(u.characters) && u.characters.includes(c.id));       
         let ownerName = 'desconocido';
         if (ownerEntry) {
-          const ownerGlobal = global.db.data.users[ownerEntry.user_id];
+          const ownerGlobal = db.getUser(ownerEntry.user_id);
           ownerName = ownerGlobal?.name?.trim() || ownerEntry.user_id.split('@')[0];
         }        
         const status = ownerEntry ? `Reclamado por *${ownerName}*` : 'Libre';

@@ -1,10 +1,11 @@
+import db from '#db';
 export default {
   command: ['setclaim', 'setclaimmsg'],
   category: 'gacha',
   description: 'Modificar el mensaje al reclamar un personaje.',
   run: async ({ msg, args, usedPrefix, command }) => {
     try {
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }      
@@ -15,7 +16,7 @@ export default {
       if (!customMsg.includes('€user') || !customMsg.includes('€character')) {
         return msg.reply(`ꕥ Tu mensaje debe incluir *€user* y *€character* para que funcione correctamente.`);
       }      
-      global.db.data.users[msg.sender].claimMessage = customMsg;
+      db.setUser(msg.sender, 'claimMessage', customMsg);
       msg.reply('❀ Mensaje de reclamación modificado.');      
     } catch (e) {
       await msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`);

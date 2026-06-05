@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const FILE_PATH = './core/characters.json';
 const rollLocks = new Map();
@@ -66,12 +67,12 @@ export default {
       if (now - lockTime < 15000) return;
       rollLocks.delete(userId);
     }
-    let chat = global.db.data.chats[chatId];
+    let chat = db.getChat(chatId);
     if (chat.adminonly || !chat.gacha) {
       return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
     }
-    (global.db.data.chats[chatId]?.users?.[userId] && (global.db.data.chats[chatId].users[userId].lastRoll ??= 0));
-    let user = global.db.data.chats[chatId]?.users?.[userId];
+    db.setCreate('chat_users', [chatId, userId], 'lastRoll', 0);
+    let user = db.getChatUser(chatId, userId);
     let me = user;
     const now = Date.now();
     const cooldown = 15 * 60 * 1000;
@@ -99,25 +100,29 @@ export default {
         return msg.reply(`ꕥ No se encontró imágenes para el personaje *${selected.name}*.`);
       }
       const charKey = chatId + '__' + id;
-      (global.db.data.characters[charKey] ||= {}, global.db.data.characters[charKey].name ??= String(selected.name || 'Sin nombre', global.db.data.characters[charKey]));
-      const globalChar = global.global.db.data.characters[id] || {};
-      let chatChar = global.global.db.data.characters[charKey] || {};
+      if (!db.getCharacter(charKey)) {
+        db.setCharacter(charKey, { name: String(selected.name || 'Sin nombre') });
+      } else if (!db.getCharacter(charKey)?.name) {
+        db.setCharacter(charKey, { ...db.getCharacter(charKey), name: String(selected.name || 'Sin nombre') });
+      }
+      const globalChar = db.getCharacter(id) || {};
+      let chatChar = db.getCharacter(charKey) || {};
       chatChar.name = String(selected.name || 'Sin nombre');
       chatChar.value = typeof globalChar.value === 'number' ? globalChar.value : Number(selected.value) || 100;
       chatChar.votes = Number(chatChar.votes || globalChar.votes || 0);
       chatChar.reservedBy = userId;
       chatChar.reservedUntil = now + 20000;
       chatChar.expiresAt = now + 60000;
-      global.global.db.data.characters[charKey] = chatChar;
+      db.setCharacter(charKey, chatChar);
       const claimedBy = chatChar?.user || null;
-      const owner = claimedBy ? (global.db.data.users[claimedBy])?.name || claimedBy.split('@')[0] : 'desconocido';
+      const owner = claimedBy ? (db.getUser(claimedBy))?.name || claimedBy.split('@')[0] : 'desconocido';
       const caption = `❀ Nombre » *${chatChar.name}*\n⚥ Género » *${selected.gender || 'Desconocido'}*\n✰ Valor » *${chatChar.value.toLocaleString()}*\n♡ Estado » *${claimedBy ? `Reclamado por ${owner}` : 'Libre'}*\n❖ Fuente » *${source}*\u206c`;
       const imgRes = await axios.get(media, { responseType: 'arraybuffer', timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': getRefererForUrl(media) } });
       const buffer = Buffer.from(imgRes.data);
       const sent = await sock.sendMessage(chatId, { image: buffer, caption: caption }, { quoted: msg });
       chat.rolls[sent.key.id] = { id, charKey, name: chatChar.name, expiresAt: chatChar.expiresAt, reservedBy: userId, reservedUntil: chatChar.reservedUntil };
-      global.db.data.chats[chatId].rolls = chat.rolls;
-      global.db.data.chats[chatId].users[userId].lastRoll = now + cooldown;
+      db.setChat(chatId, 'rolls', chat.rolls);
+      db.setChatUser(chatId, userId, 'lastRoll', now + cooldown);
     } catch (e) {
       await msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`);
     } finally {

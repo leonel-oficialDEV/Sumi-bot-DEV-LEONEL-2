@@ -1,3 +1,4 @@
+import db from '#db';
 export default {
   command: ['sell', 'vender'],
   category: 'gacha',
@@ -5,13 +6,13 @@ export default {
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     const chatId = msg.chat;
     const userId = msg.sender;
-    (global.db.data.chats[chatId].sales ??= {});
-    const chat = global.db.data.chats[chatId];
+    db.setCreate('chats', chatId, 'sales', {});
+    const chat = db.getChat(chatId);
     if (chat.adminonly || !chat.gacha) {
       return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
     }
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-    const settings = global.db.data.settings[botId];
+    const settings = db.getSettings(botId);
     const currency = settings?.currency;
     try {
       if (args.length < 2) {
@@ -25,13 +26,13 @@ export default {
         return msg.reply(`ꕥ El precio máximo permitido para subastar un personaje es de *¥100,000,000 ${currency}*.`);
       }
       const name = args.slice(1).join(' ').toLowerCase();
-      const chatUserData = global.db.data.chats[chatId]?.users?.[userId];
+      const chatUserData = db.getChatUser(chatId, userId);
       const ownedIds = Array.isArray(chatUserData?.characters) ? chatUserData.characters : [];
       let idSell = null;
       let charSell = null;
       for (const cid of ownedIds) {
         const chatKey = chatId + '__' + cid;
-        const chatChar = global.global.db.data.characters[chatKey];
+        const chatChar = db.getCharacter(chatKey);
         if (chatChar?.name?.toLowerCase() === name && chatChar.user === userId) {
           idSell = cid;
           charSell = chatChar;
@@ -44,8 +45,8 @@ export default {
         try { chat.sales = JSON.parse(chat.sales); } catch { chat.sales = {}; }
       }
       chat.sales[idSell] = { name: charSell.name, user: userId, price, time: Date.now() };
-      global.db.data.chats[chatId].sales = chat.sales;
-      const sellerGlobal = global.db.data.users[userId];
+      db.setChat(chatId, 'sales', chat.sales);
+      const sellerGlobal = db.getUser(userId);
       let sellerName = sellerGlobal?.name?.trim() || userId.split('@')[0];
       msg.reply(`✎ *${charSell.name}* ha sido puesto a la venta!\n❀ Vendedor » *${sellerName}*\n⛁ Valor » *¥${price.toLocaleString()} ${currency}*\nⴵ Expira en » *3 dias*\n> Puedes ver los personajes en venta usando *${usedPrefix}wshop*`);
     } catch (e) {

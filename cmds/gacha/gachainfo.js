@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -30,16 +31,16 @@ export default {
   description: 'Ver tu información de gacha.',
   run: async ({ msg, sock, usedPrefix, command, text }) => {
     try {
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }
-      (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastRoll ??= 0));
-      (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastClaim ??= 0));
-      (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastrobwaifu ??= 0));
-      (global.db.data.users[msg.sender].lastVote ??= 0);
-      let user = global.db.data.chats[msg.chat]?.users?.[msg.sender];
-      const userGlobal = global.db.data.users[msg.sender];
+      db.setCreate('chat_users', [msg.chat, msg.sender], 'lastRoll', 0);
+      db.setCreate('chat_users', [msg.chat, msg.sender], 'lastClaim', 0);
+      db.setCreate('chat_users', [msg.chat, msg.sender], 'lastrobwaifu', 0);
+      db.setCreate('users', msg.sender, 'lastVote', 0);
+      let user = db.getChatUser(msg.chat, msg.sender);
+      const userGlobal = db.getUser(msg.sender);
       const now = Date.now();
       const rollLeft = user.lastRoll && now < user.lastRoll ? user.lastRoll - now : 0;
       const claimLeft = user.lastClaim && now < user.lastClaim ? user.lastClaim - now : 0;
@@ -55,7 +56,7 @@ export default {
       const claimedIDs = Array.isArray(user.characters) ? user.characters : [];
       let totalValue = 0;
       for (const id of claimedIDs) {
-        const character = global.global.db.data.characters[id];
+        const character = db.getCharacter(id);
         totalValue += character?.value || 0;
       }      
       const userName = userGlobal?.name || msg.sender.split('@')[0];

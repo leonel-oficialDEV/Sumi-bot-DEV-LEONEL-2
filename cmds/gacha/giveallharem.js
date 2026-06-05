@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const file = './core/characters.json';
 
@@ -12,7 +13,7 @@ function flattenCharacters(data) {
 }
 
 const getDisplayName = async (jid) => {
-  const user = global.db.data.users[jid];
+  const user = db.getUser(jid);
   return user?.name?.trim() || jid.split('@')[0];
 };
 
@@ -29,25 +30,25 @@ export default {
     if (msg.sender !== data.sender || data.chat !== msg.chat) return;
     try {
       const chatId = msg.chat;
-      let sender = global.db.data.chats[chatId]?.users?.[data.sender];
-      let receiver = global.db.data.chats[chatId]?.users?.[data.to];
+      let sender = db.getChatUser(chatId, data.sender);
+      let receiver = db.getChatUser(chatId, data.to);
       if (!Array.isArray(receiver.characters)) receiver.characters = [];
       for (const id of data.ids) {
         const giftKey = chatId + '__' + id;
-        let character = global.global.db.data.characters[giftKey];
+        let character = db.getCharacter(giftKey);
         if (!character || character.user !== data.sender) continue;
         character.user = data.to;
         character.claimedAt = Date.now();
-        global.global.db.data.characters[giftKey] = character;
+        db.setCharacter(giftKey, character);
         if (!receiver.characters.includes(id)) receiver.characters.push(id);
         sender.characters = sender.characters.filter(c => c !== id);
         if (sender.favorite === id) {
-          global.db.data.chats[chatId].users[data.sender].favorite = '';
-          global.db.data.users[data.sender].favorite = '';
+          db.setChatUser(chatId, data.sender, 'favorite', '');
+          db.setUser(data.sender, 'favorite', '');
         }
       }
-      global.db.data.chats[chatId].users[data.sender].characters = sender.characters;
-      global.db.data.chats[chatId].users[data.to].characters = receiver.characters;
+      db.setChatUser(chatId, data.sender, 'characters', sender.characters);
+      db.setChatUser(chatId, data.to, 'characters', receiver.characters);
       clearTimeout(data.timeout);
       delete pending[msg.sender];
       const name = await getDisplayName(data.to);
@@ -60,13 +61,13 @@ export default {
   run: async ({ msg, sock, usedPrefix, command }) => {
     try {
       const chatId = msg.chat;
-      (global.db.data.chats[chatId].regalosPendientes ??= []);
-      const chat = global.db.data.chats[chatId];
+      db.setCreate('chats', chatId, 'regalosPendientes', []);
+      const chat = db.getChat(chatId);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }
       const realSender = msg.sender;
-      const user = global.db.data.chats[chatId]?.users?.[realSender];
+      const user = db.getChatUser(chatId, realSender);
       const target = msg.mentionedJid?.[0] || msg.quoted?.sender || null;
       if (!target) return msg.reply('❀ Debes mencionar a quien quieras regalarle tus personajes.');
       if (target === realSender) return msg.reply('ꕥ No puedes regalarte personajes a ti mismo.');
@@ -76,7 +77,7 @@ export default {
       const list = [];
       for (const id of ids) {
         const chatKey = chatId + '__' + id;
-        const character = global.global.db.data.characters[chatKey];
+        const character = db.getCharacter(chatKey);
         if (character && character.user === realSender) {
           const ref = all.find((c) => c.id === id);
           const value = character.value || ref?.value || 0;

@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -16,7 +17,7 @@ export default {
   category: 'gacha',
   description: 'Ver el top de personajes con mayor valor.',
   run: async ({ msg, sock, args, usedPrefix, command, text }) => {
-    const chat = global.db.data.chats[msg.chat];    
+    const chat = db.getChat(msg.chat);    
     if (chat.adminonly || !chat.gacha) {
       return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
     }    
@@ -25,7 +26,7 @@ export default {
       const allCharacters = flattenCharacters(structure);      
       const enriched = [];
       for (const c of allCharacters) {
-        const character = global.global.db.data.characters[c.id];
+        const character = db.getCharacter(c.id);
         const value = character?.value || Number(c.value || 0);
         enriched.push({ name: c.name, value, id: c.id });
       }      

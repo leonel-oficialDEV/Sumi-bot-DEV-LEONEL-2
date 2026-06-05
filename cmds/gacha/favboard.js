@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -16,14 +17,14 @@ export default {
   category: 'gacha',
   description: 'Ver el top de personajes favoritos.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
-    const chat = global.db.data.chats[msg.chat];
+    const chat = db.getChat(msg.chat);
     if (chat.adminonly || !chat.gacha) {
       return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
     }    
     try {
       const structure = await loadCharacters();
       const allCharacters = flattenCharacters(structure);      
-      const allUsers = Object.values(global.db.data.users);
+      const allUsers = db.getUser();
       const counts = {};      
       for (const user of allUsers) {
         const favId = user.favorite;
@@ -31,7 +32,7 @@ export default {
       }      
       const enriched = [];
       for (const c of allCharacters) {
-        const character = global.global.db.data.characters[c.id];
+        const character = db.getCharacter(c.id);
         const name = character?.name || c.name;
         enriched.push({ name, favorites: counts[c.id] || 0 });
       }      

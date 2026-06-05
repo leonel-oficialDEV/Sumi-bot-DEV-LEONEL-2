@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const FILE_PATH = './core/characters.json';
 
@@ -43,7 +44,7 @@ export default {
   description: 'Ver información de un personaje.',
   run: async ({ msg, sock, args, usedPrefix, command, text }) => {
     try {
-      const chat = global.db.data.chats[msg.chat] || {};
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }      
@@ -58,12 +59,12 @@ export default {
         return msg.reply(`ꕥ No se encontró el personaje *${nameQuery}*.`);
       }      
       const source = getSeriesNameByCharacter(structure, character.id);
-      let characterData = global.db.data.characters[character.id];
+      let characterData = db.getCharacter(character.id);
       if (!characterData) {
         characterData = { name: character.name, value: Number(character.value) || 100, votes: 0 };
-        global.db.data.characters[character.id] = characterData;
+        db.setCharacter(character.id, characterData);
       }      
-      const allChatUsers = Object.values(global.db.data.chats[msg.chat]?.users || {});
+      const allChatUsers = db.getChatUser(msg.chat);
       for (const u of allChatUsers) {
         if (u.characters && typeof u.characters === 'string') {
           try { u.characters = JSON.parse(u.characters); } catch { u.characters = []; }
@@ -73,9 +74,9 @@ export default {
       let ownerName = 'Desconocido';
       let claimedDateLine = '';      
       if (userEntry) {
-        const ownerGlobal = global.db.data.users[userEntry.user_id];
+        const ownerGlobal = db.getUser(userEntry.user_id);
         ownerName = ownerGlobal?.name?.trim() || userEntry.user_id.split('@')[0];
-        const claimedChar = global.db.data.characters[msg.chat + '__' + character.id];
+        const claimedChar = db.getCharacter(msg.chat + '__' + character.id);
         if (claimedChar?.claimedAt) {
           claimedDateLine = `\nⴵ Fecha de reclamo » *${new Date(claimedChar.claimedAt).toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}*`;
         }
@@ -83,7 +84,7 @@ export default {
       const lastVoteAgo = typeof characterData.lastVotedAt === 'number' ? `hace *${formatElapsed(Date.now() - characterData.lastVotedAt)}*` : '*Nunca*';
       const allCharacters_data = [];
       for (const c of allCharacters) {
-        const charData = global.db.data.characters[c.id];
+        const charData = db.getCharacter(c.id);
         if (charData?.value) {
           allCharacters_data.push({ name: c.name, value: charData.value });
         }

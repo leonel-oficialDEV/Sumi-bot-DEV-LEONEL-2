@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import db from '#db';
 
 const charactersFilePath = './core/characters.json';
 
@@ -17,7 +18,7 @@ export default {
   description: 'Regalar un personaje a otro usuario.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     try {
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       if (chat.adminonly || !chat.gacha) {
         return msg.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
       }      
@@ -26,8 +27,8 @@ export default {
       }      
       const targetId = msg.mentionedJid?.[0] || msg.quoted?.sender || null;
       if (!targetId) return msg.reply(`❀ Debes mencionar o citar el mensaje del destinatario.`);
-      let sender = global.db.data.chats[msg.chat]?.users?.[msg.sender];
-      let target = global.db.data.chats[msg.chat]?.users?.[targetId];
+      let sender = db.getChatUser(msg.chat, msg.sender);
+      let target = db.getChatUser(msg.chat, targetId);
       if (!target) {
       return msg.reply(`「✎」 El usuario mencionado no está registrado en el bot.`);
       }
@@ -42,24 +43,24 @@ export default {
         return msg.reply(`ꕥ *${character.name}* no está reclamado por ti.`);
       }
       const charKey = msg.chat + '__' + character.id;
-      (global.db.data.characters[charKey] ||= {}, global.db.data.characters[charKey].name ??= character.name, global.db.data.characters[charKey]);
-      let characterData = global.global.db.data.characters[charKey];
+      db.setCreate('characters', charKey, 'name', character.name);
+      let characterData = db.getCharacter(charKey);
       if (!characterData) characterData = { name: character.name, value: Number(character.value || 0), votes: 0 };
       characterData.user = targetId;
       characterData.claimedAt = Date.now();
-      global.global.db.data.characters[charKey] = characterData;
+      db.setCharacter(charKey, characterData);
       sender.characters = sender.characters.filter(id => id !== character.id);
-      global.db.data.chats[msg.chat].users[msg.sender].characters = sender.characters;
+      db.setChatUser(msg.chat, msg.sender, 'characters', sender.characters);
       if (!target.characters.includes(character.id)) {
         target.characters.push(character.id);
-        global.db.data.chats[msg.chat].users[targetId].characters = target.characters;
+        db.setChatUser(msg.chat, targetId, 'characters', target.characters);
       }
       if (sender.favorite === character.id) {
-        global.db.data.chats[msg.chat].users[msg.sender].favorite = '';
-        global.db.data.users[msg.sender].favorite = '';
+        db.setChatUser(msg.chat, msg.sender, 'favorite', '');
+        db.setUser(msg.sender, 'favorite', '');
       }
-      const senderGlobal = global.db.data.users[msg.sender];
-      const targetGlobal = global.db.data.users[targetId];
+      const senderGlobal = db.getUser(msg.sender);
+      const targetGlobal = db.getUser(targetId);
       let senderName = senderGlobal?.name?.trim() || msg.sender.split('@')[0];
       let receiverName = targetGlobal?.name?.trim() || targetId.split('@')[0];
       await sock.reply(msg.chat, `❀ *${character.name}* ha sido regalado a *${receiverName}* por *${senderName}*.`, msg, { mentions: [targetId] });
