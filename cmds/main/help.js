@@ -4,6 +4,7 @@ import fs from 'fs';
 import axios from 'axios';
 import moment from 'moment-timezone';
 import { bodyMenu, menuObject } from '#system/commands';
+import db from '#db';
 
 function normalize(text = '') {
   text = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
@@ -21,7 +22,7 @@ export default {
       const tiempo = colombianTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/,/g, '');
       const tempo = moment.tz('America/Caracas').format('hh:mm A');
       const botId = sock?.user?.id.split(':')[0] + '@s.whatsapp.net';
-      const botSettings = global.db.data.settings[botId] || {};
+      const botSettings = db.getSettings(botId) || {};
       const botname = botSettings.botname || '';
       const namebot = botSettings.namebot || '';
       const banner = botSettings.banner || '';
@@ -30,12 +31,12 @@ export default {
       const canalName = botSettings.nameid || '';
       const prefix = botSettings.prefix;
       const link = botSettings.link || global.links?.api?.channel || '';
-      const isOficialBot = botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
+      const isOficialBot = botId === ((global.sock?.user?.id?.split(':')[0] ?? null) && ((global.sock?.user?.id?.split(':')[0] ?? null) && (global.sock.user.id.split(':')[0] + '@s.whatsapp.net')));
     const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
-      const users = Object.values(global.db.data.users);
+      const users = db.getUser();
       const usersCount = users?.length || 0;
       const device = getDevice(msg.key.id);
-      const userGlobal = global.db.data.users[msg.sender];
+      const userGlobal = db.getUser(msg.sender);
       const sender = userGlobal?.name || msg.pushName || 'Usuario';
       const time = sock.uptime ? formatearMs(Date.now() - sock.uptime) : "Desconocido";
       const alias = {
@@ -60,7 +61,7 @@ export default {
       const content = cat ? String(sections[cat] || '') : Object.values(sections).map(s => String(s || '')).join('\n\n');
       let menu = bodyMenu ? String(bodyMenu || '') + '\n\n' + content : content;
       const replacements = {
-        $owner: owner ? (!isNaN(owner.replace(/@s\.whatsapp\.net$/, '')) ? (global.db.data.users[owner])?.name || owner.split('@')[0] : owner) : 'Oculto por privacidad',
+        $owner: owner ? (!isNaN(owner.replace(/@s\.whatsapp\.net$/, '')) ? (db.getUser(owner))?.name || owner.split('@')[0] : owner) : 'Oculto por privacidad',
         $botType: botType,
         $device: device,
         $tiempo: tiempo,

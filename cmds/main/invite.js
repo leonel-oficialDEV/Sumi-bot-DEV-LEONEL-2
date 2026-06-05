@@ -1,3 +1,4 @@
+import db from '#db';
 const linkRegex = /chat\.whatsapp\.com\/([0-9A-Za-z]{20,24})(?:\s+[0-9]{1,3})?/i;
 
 async function getGroupName(sock, chatId) {
@@ -14,11 +15,11 @@ export default {
   category: 'main',
   description: 'Invitar el bot a un grupo.',
   run: async ({ msg, sock, args }) => {
-    (global.db.data.users[msg.sender].jointime ??= 0);
-    let user = global.db.data.users[msg.sender];
+    db.setCreate('users', [msg.sender], 'jointime', 0);
+    let user = db.getUser(msg.sender);
     const grupo = msg.isGroup ? await getGroupName(sock, msg.chat) : 'Chat privado';
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-    const botSettings = global.db.data.settings[botId] || {};
+    const botSettings = db.getSettings(botId) || {};
     const botname = botSettings.botname || 'Bot';
     const dueño = botSettings.owner || '';
     const cooldown = 3600000;
@@ -34,7 +35,7 @@ export default {
     if (!match || !match[1]) {
       return msg.reply('《✧》 El enlace ingresado no es válido o está incompleto.');
     }
-    const isOficialBot = botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
+    const isOficialBot = botId === ((global.sock?.user?.id?.split(':')[0] ?? null) && ((global.sock?.user?.id?.split(':')[0] ?? null) && (global.sock.user.id.split(':')[0] + '@s.whatsapp.net')));
     const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
     const pp = await sock.profilePictureUrl(msg.sender, 'image').catch(() => 'https://cdn.yuki-wabot.my.id/files/2PVh.jpeg');
     const userName = user?.name || 'Usuario';
@@ -62,7 +63,7 @@ export default {
       } catch {}
     }
     await sock.reply(msg.chat, '❀ El enlace fue enviado correctamente. ¡Gracias por tu invitación! ฅ^•ﻌ•^ฅ', msg);
-    global.db.data.users[msg.sender].jointime = Date.now();
+    db.setUser(msg.sender, 'jointime', Date.now());
   },
 };
 

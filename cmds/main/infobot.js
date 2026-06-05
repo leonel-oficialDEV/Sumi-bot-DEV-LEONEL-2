@@ -1,6 +1,7 @@
 import fetch from 'node-fetch'
 import os from 'os';
 import { prepareWAMessageMedia } from 'baileys';
+import db from '#db';
 
 export default {
   command: ['infobot', 'botinfo'],
@@ -8,7 +9,7 @@ export default {
   description: 'Obtener información del bot.',
   run: async ({ msg, sock, usedPrefix, command, text }) => {
     const botId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
-    const botSettings = global.db.data.settings[botId] || {};
+    const botSettings = db.getSettings(botId) || {};
     const botname = botSettings.botname || 'Bot';
     const namebot = botSettings.namebot || 'Bot';
     const monedas = botSettings.currency || 'Yenes';
@@ -20,7 +21,7 @@ export default {
     const link = botSettings.link || '';
     let desar = 'Oculto';
     if (owner && !isNaN(owner.replace(/@s\.whatsapp\.net$/, ''))) {
-      const userData = global.db.data.users[owner];
+      const userData = db.getUser(owner);
       desar = userData?.genre || 'Oculto';
     }
     const platform = os.type();
@@ -31,7 +32,7 @@ export default {
     const uptime = process.uptime();
     const uptimeDate = new Date(colombianTime.getTime() - uptime * 1000);
     const formattedUptimeDate = uptimeDate.toLocaleString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/^./, m => m.toUpperCase());
-    const isOficialBot = botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
+    const isOficialBot = botId === ((global.sock?.user?.id?.split(':')[0] ?? null) && ((global.sock?.user?.id?.split(':')[0] ?? null) && (global.sock.user.id.split(':')[0] + '@s.whatsapp.net')));
     const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
     try {
       const message = `✐ Información del bot *${botname}!*

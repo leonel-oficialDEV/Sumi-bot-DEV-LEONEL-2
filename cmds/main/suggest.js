@@ -1,3 +1,4 @@
+import db from '#db';
 export default {
   command: ['report', 'reporte', 'sug', 'suggest'],
   category: 'main',
@@ -9,8 +10,8 @@ export default {
     const cooldownHours = 12;
     const cooldownMs = cooldownHours * 60 * 60 * 1000;
     const userKey = esReporte ? 'reportCooldown' : 'sugCooldown';
-    (global.db.data.users[msg.sender][userKey] ??= 0);
-    let user = global.db.data.users[msg.sender];
+    db.setCreate('users', msg.sender, userKey, 0);
+    let user = db.getUser(msg.sender);
     const cooldown = user[userKey] || 0;
     const restante = cooldown - now;
     if (restante > 0) {
@@ -30,8 +31,8 @@ export default {
     const numero = msg.sender.split('@')[0];
     const pp = await sock.profilePictureUrl(msg.sender, 'image').catch(() => 'https://cdn.yuki-wabot.my.id/files/2PVh.jpeg');
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-    const botSettings = global.db.data.settings[botId] || {};
-    const isOficialBot = botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
+    const botSettings = db.getSettings(botId) || {};
+    const isOficialBot = botId === ((global.sock?.user?.id?.split(':')[0] ?? null) && ((global.sock?.user?.id?.split(':')[0] ?? null) && (global.sock.user.id.split(':')[0] + '@s.whatsapp.net')));
     const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
     let reportMsg = `🫗۫᷒ᰰ⃘ׅ᷒  ۟　\`${tipo}\`　ׅ　ᩡ\n\n𖹭  ׄ  ְ ❖ *Nombre*\n> ${name}\n\n𖹭  ׄ  ְ ❖ *Número*\n> wa.me/${numero}\n\n𖹭  ׄ  ְ ❖ *Fecha*\n> ${fechaLocal}\n\n𖹭  ׄ  ְ ❖ *Socket*\n> ${botType}\n\n𖹭  ׄ  ְ ❖ *Mensaje*\n> ${texto}\n\n`;
     for (const num of global.owner) {
@@ -39,7 +40,7 @@ export default {
         await sock.sendMessage(`${num}@s.whatsapp.net`, { text: reportMsg });
       } catch {}
     }    
-    (global.db.data.users[msg.sender][userKey] = now + cooldownMs);
+    db.setUser(msg.sender, userKey, now + cooldownMs);
     msg.reply(`《✧》 Gracias por tu *${esReporte ? 'reporte' : 'sugerencia'}*\n\n> Tu mensaje fue enviado correctamente a los moderadores`);
   },
 };

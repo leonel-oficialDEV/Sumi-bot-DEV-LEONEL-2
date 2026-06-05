@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import { sizeFormatter } from 'human-readable';
+import db from '#db';
 
 function getDefaultHostId() {
   if (process.env.HOSTNAME) {
@@ -17,12 +18,12 @@ export default {
   description: 'Ver el estado del bot.',
   run: async ({ msg, sock }) => {
     const hostId = getDefaultHostId();
-    const allChats = Object.values(global.db.data.chats);
+    const allChats = db.getChat();
     const registeredGroups = allChats?.length || 0;
     const botId = sock.user.id.split(':')[0] + "@s.whatsapp.net" || false;
-    const botSettings = global.db.data.settings[botId] || {};
+    const botSettings = db.getSettings(botId) || {};
     const botname = botSettings.botname || 'Bot';
-    const allUsers = Object.values(global.db.data.users);
+    const allUsers = db.getUser();
     const userCount = allUsers?.length || '0';
     const totalCommands = allUsers?.reduce((acc, user) => acc + (user.usedcommands || 0), 0) || 0;
     const estadoBot = `「❀」 Estado de *${botname}* (●\´ϖ\`●)
