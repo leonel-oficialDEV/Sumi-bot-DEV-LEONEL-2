@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import db from '#db';
 
 const symbols = ['(⁠◠⁠‿⁠◕⁠)', '˃͈◡˂͈', '૮(˶ᵔᵕᵔ˶)ა', '(づ｡◕‿‿◕｡)づ', '(✿◡‿◡)', '(꒪⌓꒪)', '(✿✪‿✪｡)', '(*≧ω≦)', '(✧ω◕)', '˃ 𖥦 ˂', '(⌒‿⌒)', '(¬‿¬)', '(✧ω✧)', '✿(◕ ‿◕)✿', 'ʕ•́ᴥ•̀ʔっ', '(ㅇㅅㅇ❀)', '(∩︵∩)', '(✪ω✪)', '(✯◕‿◕✯)', '(•̀ᴗ•́)و ̑̑'];
 function getRandomSymbol() { return symbols[Math.floor(Math.random() * symbols.length)]; }
@@ -151,9 +152,9 @@ export default {
     const currentCommand = Object.keys(alias).find(key => alias[key].includes(command)) || command;
     if (!captions[currentCommand]) return;
     const who = msg.mentionedJid?.[0] || msg.quoted?.sender || msg.sender;
-    const fromName = global.db.data.users[msg.sender]?.name || '@' + msg.sender.split('@')[0];
-    const toName = global.db.data.users[who]?.name || '@' + who.split('@')[0];
-    const genero = global.db.data.users[msg.sender]?.genre || 'Oculto';
+    const fromName = db.getUser(msg.sender)?.name || '@' + msg.sender.split('@')[0];
+    const toName = db.getUser(who)?.name || '@' + who.split('@')[0];
+    const genero = db.getUser(msg.sender)?.genre || 'Oculto';
     const captionText = captions[currentCommand](fromName, toName, genero);
     const caption = who !== msg.sender ? `\`${fromName}.\` ${captionText} \`${toName}.\` ${getRandomSymbol()}.` : `\`${fromName}\` ${captionText} ${getRandomSymbol()}.`;
     try {

@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import db from '#db';
 
 export default {
   command: ['waifu', 'neko'],
@@ -7,7 +8,7 @@ export default {
   run: async ({ msg, sock, usedPrefix, command }) => {
     try {
       await msg.react('🕒');
-      const chat = global.db.data.chats[msg.chat];
+      const chat = db.getChat(msg.chat);
       let mode = chat?.nsfw ? 'nsfw' : 'sfw';
       let url = `https://nekos.best/api/v2/${command}${mode === 'nsfw' ? '?type=nsfw' : ''}`;
       let res = await fetch(url);
