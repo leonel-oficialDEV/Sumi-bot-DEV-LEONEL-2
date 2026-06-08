@@ -112,7 +112,7 @@ async function vectorinkEnhanceFromBuffer(inputBuf, inputMime) {
   const ORIGIN = 'https://vectorink.io'
   const TIMEOUT = 120_000
   const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36'
-  const out = { ok: false, provider: 'vectorink.io', meta}
+  const out = { ok: false, provider: 'vectorink.io', meta: { inputMime, inputSize: inputBuf.length } }
   const tmpDir = path.join(os.tmpdir(), 'vectorink')
   try {
     await fsp.mkdir(tmpDir, { recursive: true })
