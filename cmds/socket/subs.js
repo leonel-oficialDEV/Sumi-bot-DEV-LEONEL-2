@@ -37,8 +37,10 @@ export async function startSubBot(msg, client, caption = '', isCode = false, pho
   const id = phone || (msg?.sender || '').split('@')[0];
   const sessionFolder = `./Sessions/Subs/${id}`;
   const senderId = msg?.sender;
-  const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
+  const { state, saveCreds: saveCredsDB, close } = await useMultiFileAuthState(sessionFolder);
   const { version } = await fetchLatestBaileysVersion();
+  let saveCredsTimer = null;
+  const saveCreds = () => { clearTimeout(saveCredsTimer); saveCredsTimer = setTimeout(saveCredsDB, 2000); };
   const msgStore = new Map();
   const msgLimit = 500;
   console.info = () => {};
