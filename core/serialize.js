@@ -1,13 +1,13 @@
-import { proto, delay, areJidsSameUser, generateWAMessage, generateWAMessageFromContent, generateWAMessageContent, prepareWAMessageMedia, downloadContentFromMessage, getContentType, getDevice, extractMessageContent, jidDecode } from 'baileys';
+ñimport { proto, delay, areJidsSameUser, generateWAMessage, generateWAMessageFromContent, generateWAMessageContent, prepareWAMessageMedia, downloadContentFromMessage, getContentType, getDevice, extractMessageContent, jidDecode } from 'baileys';
 import fs from 'fs';
 import axios from 'axios';
 import crypto from 'crypto';
 import FileType from 'file-type';
 import path from 'path';
-import exif from './exif.js';
+import exif from './exif.ts';
+import db from '#db';
 import { fileURLToPath } from 'url';
 import GraphemeSplitter from 'grapheme-splitter';
-import db from '#db';
 
 const splitter = new GraphemeSplitter();
 const __filename = fileURLToPath(import.meta.url);
@@ -165,9 +165,12 @@ function patchGroupMetadata(sock) {
   const orig = sock.groupMetadata.bind(sock);
   sock.groupMetadata = async (jid) => {
     try {
+      const cached = getCachedMeta(jid);
+      if (cached) return cached;
       const meta = await orig(jid);
       if (!meta?.participants) return meta;
       meta.participants = resolveParticipants(meta.participants, sock);
+      setCachedMeta(jid, meta);
       return meta;
     } catch (e) {
       return null;
@@ -182,39 +185,6 @@ export async function getBuffer(url, options = {}) {
     const res = await axios({ method: 'get', url, headers: { DNT: 1, 'Upgrade-Insecure-Request': 1 }, responseType: 'arraybuffer', timeout: 30_000, ...options });
     return res.data;
   } catch (e) { throw e; }
-}
-
-export async function getFile(PATH, saveToFile = false) {
-  let filename;
-  let data;
-  if (Buffer.isBuffer(PATH)) {
-    data = PATH;
-  } else if (PATH instanceof ArrayBuffer) {
-    data = Buffer.from(PATH);
-  } else if (/^data:.*?\/.*?;base64,/i.test(PATH)) {
-    data = Buffer.from(PATH.split`,`[1], 'base64');
-  } else if (/^https?:\/\//.test(PATH)) {
-    data = await getBuffer(PATH);
-  } else if (fs.existsSync(PATH)) {
-    filename = PATH;
-    data = fs.readFileSync(PATH);
-  } else {
-    throw new TypeError(`getFile: input invalido — ${typeof PATH}`);
-  }
-  if (!Buffer.isBuffer(data)) throw new TypeError('getFile: el resultado no es un Buffer');
-  const type = (await FileType.fromBuffer(data)) || { mime: 'application/octet-stream', ext: '.bin' };
-  if (saveToFile && !filename) {
-    filename = path.join(__dirname, '../tmp/' + Date.now() + '.' + type.ext);
-    await fs.promises.writeFile(filename, data);
-  }
-  return { filename, ...type, data, deleteFile: () => filename ? fs.promises.unlink(filename) : Promise.resolve() };
-}
-
-export async function fetchJson(url, options) {
-  try {
-    const res = await axios({ method: 'GET', url, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36' }, ...options });
-    return res.data;
-  } catch (err) { return err; }
 }
 
 export async function smsg(sock, msg, store) {
@@ -501,7 +471,7 @@ export async function smsg(sock, msg, store) {
     return sock.relayMessage(jid, content, {});
   };
   }
-
+  
   if (!sock.reply) {
   sock.reply = async (jid, text = '', quoted, options) => {
     return Buffer.isBuffer(text) ? sock.sendFile(jid, text, 'file', '', quoted, false, options) : sock.sendMessage(jid, { ...options, text }, { quoted, ...options });
