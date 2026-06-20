@@ -4,7 +4,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 import FileType from 'file-type';
 import path from 'path';
-import exif from './exif.ts';
+import exif from './exif.js';
 import db from '#db';
 import { fileURLToPath } from 'url';
 import GraphemeSplitter from 'grapheme-splitter';
