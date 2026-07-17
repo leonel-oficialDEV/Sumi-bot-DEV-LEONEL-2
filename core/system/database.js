@@ -116,14 +116,14 @@ export const defSets = {
   prefix: '[\"/\",\"!\",\".\",\"#\"]',
   commandsejecut: 0,
   newsletter_id: '120363324350463849@newsletter',
-  nameid: 'ೃ࿔ ყµҡเ ωαɓσƭร - σƒƒเ૮เαℓ ૮ɦαɳɳεℓ .ೃ࿐',
+  nameid: '🤍CHANNEL - OFICIAL 🤍',
   type: 'Owner',
   link: 'https://api.yuki-wabot.my.id',
   banner: 'https://cdn.yuki-wabot.my.id/files/tCVD.jpeg',
   icon: 'https://cdn.yuki-wabot.my.id/files/4U5V.jpeg',
   currency: 'Yenes',
-  namebot: 'Yuki',
-  botname: 'Yuki Suou',
+  namebot: '❤️SUMI❤️',
+  botname: '🤍SUMI SAKURASAWA🤍',
   owner: ''
 };
 
@@ -189,14 +189,14 @@ export function initDB() {
       prefix TEXT DEFAULT '[\"/\",\"!\",\".\",\"#\"]',
       commandsejecut INTEGER DEFAULT 0,
       newsletter_id TEXT DEFAULT '120363324350463849@newsletter',
-      nameid TEXT DEFAULT 'ೃ࿔ ყµҡเ ωαɓσƭร - σƒƒเ૮เαℓ ૮ɦαɳɳεℓ .ೃ࿐',
+      nameid TEXT DEFAULT '❤️SUMI❤️',
       type TEXT DEFAULT 'Owner',
       link TEXT DEFAULT 'https://api.yuki-wabot.my.id',
       banner TEXT DEFAULT 'https://cdn.yuki-wabot.my.id/files/tCVD.jpeg',
       icon TEXT DEFAULT 'https://cdn.yuki-wabot.my.id/files/4U5V.jpeg',
       currency TEXT DEFAULT 'Yenes',
-      namebot TEXT DEFAULT 'Yuki',
-      botname TEXT DEFAULT 'Yuki Suou',
+      namebot TEXT DEFAULT '❤️SUMI❤️',
+      botname TEXT DEFAULT '🤍SUMI SAKURASAWA🤍',
       owner TEXT DEFAULT ''
     )`);
   db.exec(`CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, data TEXT)`);
@@ -502,40 +502,4 @@ try {
       const defaultValue = table.def[col];
       let sqlType = 'TEXT';
       if (typeof defaultValue === 'number') sqlType = 'INTEGER';
-      else if (typeof defaultValue === 'boolean') sqlType = 'BOOLEAN';
-      const defaultStr = defaultValue === null ? 'NULL' : JSON.stringify(defaultValue);
-      db.exec(`ALTER TABLE ${table.name} ADD COLUMN ${col} ${sqlType} DEFAULT ${defaultStr}`);
-      if (table.name === 'chat_users') {
-        for (const row of stmt(`SELECT chat_id, user_id FROM ${table.name}`).all())
-          stmt(`UPDATE ${table.name} SET ${col} = ? WHERE chat_id = ? AND user_id = ?`).run(defaultValue, row.chat_id, row.user_id);
-      } else {
-        for (const row of stmt(`SELECT id FROM ${table.name}`).all())
-          stmt(`UPDATE ${table.name} SET ${col} = ? WHERE id = ?`).run(defaultValue, row.id);
-      }
-    }
-  }
-} catch (e) { console.error('[DB migration error]', e); }
-
-export function clearDB() {
-  if (!global.cleardb) {
-    global.cleardb = true;
-    const INACTIVE_MS = 20 * 86400000;
-    setInterval(() => {
-      const now = Date.now();
-      for (const cu of stmt('SELECT chat_id, user_id, usedTime, lastCmd FROM chat_users').all()) {
-        const last = cu.lastCmd > 0 ? cu.lastCmd : (cu.usedTime ? new Date(JSON.parse(cu.usedTime)).getTime() : 0);
-        if (last === 0 || now - last > INACTIVE_MS) {
-          stmt('DELETE FROM chat_users WHERE chat_id = ? AND user_id = ?').run(cu.chat_id, cu.user_id);
-          memCache.delete(getCacheKey('chatuser', `${cu.chat_id}:${cu.user_id}`));
-        }
-      }
-      for (const u of stmt('SELECT id FROM users WHERE exp = 0 AND id NOT IN (SELECT user_id FROM chat_users)').all()) {
-        stmt('DELETE FROM users WHERE id = ?').run(u.id);
-        memCache.delete(getCacheKey('user', u.id));
-      }
-    }, 86400000);
-  }
-}
-
-
-export default { initDB, getUser, setUser, getChat, setChat, getChatUser, setChatUser, getSettings, setSettings, getCharacter, setCharacter, getStickersPack, setStickersPack, deletedb, setCreate, clearCache, clearDB, db };
+      else if (typ
