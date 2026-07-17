@@ -116,14 +116,14 @@ export const defSets = {
   prefix: '[\"/\",\"!\",\".\",\"#\"]',
   commandsejecut: 0,
   newsletter_id: '120363324350463849@newsletter',
-  nameid: '🤍CHANNEL - OFICIAL 🤍',
+  nameid: '🤍CHANNELOFICIAL🤍',
   type: 'Owner',
   link: 'https://api.yuki-wabot.my.id',
   banner: 'https://cdn.yuki-wabot.my.id/files/tCVD.jpeg',
   icon: 'https://cdn.yuki-wabot.my.id/files/4U5V.jpeg',
   currency: 'Yenes',
   namebot: '❤️SUMI❤️',
-  botname: '🤍SUMI SAKURASAWA🤍',
+  botname: '🤍SUMISAKURASAWA🤍',
   owner: ''
 };
 
@@ -196,7 +196,7 @@ export function initDB() {
       icon TEXT DEFAULT 'https://cdn.yuki-wabot.my.id/files/4U5V.jpeg',
       currency TEXT DEFAULT 'Yenes',
       namebot TEXT DEFAULT '❤️SUMI❤️',
-      botname TEXT DEFAULT '🤍SUMI SAKURASAWA🤍',
+      botname TEXT DEFAULT '🤍SUMISAKURASAWA🤍',
       owner TEXT DEFAULT ''
     )`);
   db.exec(`CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, data TEXT)`);
