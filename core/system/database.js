@@ -501,7 +501,8 @@ try {
     for (const col of missingCols) {
       const defaultValue = table.def[col];
       let sqlType = 'TEXT';
-      if (typeof defaultValue === 'number') sqlType = 'INTEGER';       else if (typeof defaultValue === 'boolean') sqlType = 'BOOLEAN';
+      if (typeof defaultValue === 'number') sqlType = 'INTEGER';
+else if (typeof defaultValue === 'boolean') sqlType = 'BOOLEAN';
       const defaultStr = defaultValue === null ? 'NULL' : JSON.stringify(defaultValue);
       db.exec(`ALTER TABLE ${table.name} ADD COLUMN ${col} ${sqlType} DEFAULT ${defaultStr}`);
       if (table.name === 'chat_users') {
