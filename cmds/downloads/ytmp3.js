@@ -2,22 +2,26 @@ import yts from 'yt-search'
 import fetch from 'node-fetch'
 
 const cmd = {
-  command: ['play', 'mp3', 'ytmp3', 'ytaudio', 'playaudio'],
+  command: [
+    'play', 'mp3', 'ytmp3', 'ytaudio', 'playaudio',
+    'play2', 'mp4', 'ytmp4', 'ytvideo', 'playvideo'
+  ],
   category: 'downloads',
-  description: 'Descargar una canción de YouTube.',
+  description: 'Descargar audio (MP3) o video (MP4) de YouTube por nombre o URL.',
 
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     try {
       if (!args[0]) {
-        return msg.reply('《✧》Por favor, menciona el nombre o URL del video que deseas descargar')
+        return msg.reply('《✧》Por favor, menciona el nombre o URL del video que deseas descargar.')
       }
 
+      const isVideoCommand = /^(play2|mp4|ytmp4|ytvideo|playvideo)$/i.test(command)
       const input_text = args.join(' ').trim()
       const video_id = getVideoId(input_text)
       const query = video_id ? `https://youtu.be/${video_id}` : input_text
 
       let url = query
-      let title = 'audio'
+      let title = isVideoCommand ? 'video' : 'audio'
       let thumbnail = null
 
       try {
@@ -30,8 +34,9 @@ const cmd = {
 
           const views = Number(video_info.views || 0).toLocaleString('es-HN')
           const channel = video_info.author?.name || video_info.author || 'Desconocido'
+          const formatText = isVideoCommand ? 'Video (MP4)' : 'Audio (MP3)'
 
-          const info_message = `➩ Descargando › *${title}*
+          const info_message = `➩ Descargando ${formatText} › *${title}*
 
 > ❖ Canal › *${channel}*
 > ⴵ Duración › *${video_info.timestamp || 'Desconocido'}*
@@ -54,17 +59,31 @@ const cmd = {
         return msg.reply('《✧》No se encontró un video válido de YouTube.')
       }
 
-      const audio = await getAudioFromApi(url)
+      if (isVideoCommand) {
+        const video = await getVideoFromApi(url)
 
-      if (!audio?.buffer?.length) {
-        return msg.reply('《✧》No se pudo descargar el *audio*, intenta más tarde.')
+        if (!video?.buffer?.length) {
+          return msg.reply('《✧》No se pudo descargar el *video*, intenta más tarde.')
+        }
+
+        await sock.sendMessage(msg.chat, {
+          video: video.buffer,
+          fileName: video.name || `${title}.mp4`,
+          mimetype: 'video/mp4'
+        }, { quoted: msg })
+      } else {
+        const audio = await getAudioFromApi(url)
+
+        if (!audio?.buffer?.length) {
+          return msg.reply('《✧》No se pudo descargar el *audio*, intenta más tarde.')
+        }
+
+        await sock.sendMessage(msg.chat, {
+          audio: audio.buffer,
+          fileName: audio.name || `${title}.mp3`,
+          mimetype: 'audio/mpeg'
+        }, { quoted: msg })
       }
-
-      await sock.sendMessage(msg.chat, {
-        audio: audio.buffer,
-        fileName: audio.name || `${title}.mp3`,
-        mimetype: 'audio/mpeg'
-      }, { quoted: msg })
     } catch (e) {
       await msg.reply(
         `> An unexpected error occurred while executing command *${usedPrefix + command}*.\n> [Error: *${e.message}*]`
@@ -118,8 +137,8 @@ async function getVideoInfo(input, video_id) {
 }
 
 async function getAudioFromApi(url) {
-  const api_url = `https://api.lempi.lat/dl/yta?url=${encodeURIComponent(url)}&apikey=montekey28`
-  
+  const api_url = `https://api.delirius.online/download/ytmp3?url=${encodeURIComponent(url)}`
+
   const res = await fetch(api_url, {
     headers: { 'accept': 'application/json' }
   })
@@ -128,17 +147,43 @@ async function getAudioFromApi(url) {
 
   const json = await res.json()
 
-  if (!json?.status || !json?.descarga?.url) {
+  if (!json?.status || !json?.data?.download) {
     throw new Error('No se encontró el enlace de descarga en la API.')
   }
 
-  const audio_res = await fetch(json.descarga.url)
+  const audio_res = await fetch(json.data.download)
   if (!audio_res.ok) throw new Error(`No se pudo descargar el audio: HTTP ${audio_res.status}`)
 
   const buffer = await audio_res.buffer()
 
   return {
     buffer,
-    name: json.descarga.archivo || 'audio.mp3'
+    name: `${json.data.title || 'audio'}.mp3`
+  }
+}
+
+async function getVideoFromApi(url) {
+  const api_url = `https://api.evogb.org/dl/ytmp4?url=${encodeURIComponent(url)}&quality=720&key=Jotaa.hrzkey`
+
+  const res = await fetch(api_url, {
+    headers: { 'accept': 'application/json' }
+  })
+
+  if (!res.ok) throw new Error(`API falló: HTTP ${res.status}`)
+
+  const json = await res.json()
+
+  if (!json?.status || !json?.data?.dl) {
+    throw new Error('No se encontró el enlace de descarga en la API.')
+  }
+
+  const video_res = await fetch(json.data.dl)
+  if (!video_res.ok) throw new Error(`No se pudo descargar el video: HTTP ${video_res.status}`)
+
+  const buffer = await video_res.buffer()
+
+  return {
+    buffer,
+    name: `${json.data.title || 'video'}.mp4`
   }
 }
