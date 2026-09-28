@@ -1,60 +1,97 @@
-import { fileTypeFromBuffer } from "file-type"
-import crypto from "crypto"
+import FormData from 'form-data';
+import axios from 'axios';
+import db from '#db';
 
-const handler = async (m, { conn, command, usedPrefix, text }) => {
-try {
-let q = m.quoted ? m.quoted : m
-let mime = (q.msg || q).mimetype || ''
-switch (command) {
-case 'tourl': {
-if (!mime) return conn.reply(m.chat, `❀ Por favor, responde a una *Imagen* o *Vídeo.*`, m)
-await m.react('🕒')
-const media = await q.download()
-const isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime)
-const link = await uploadImage(media)
-const txt = `乂  *L I N K - E N L A C E*  乂\n\n*» Enlace* : ${link}\n*» Tamaño* : ${formatBytes(media.length)}\n*» Expiración* : ${isTele ? 'No expira' : 'Desconocido'}\n\n> *${dev}*`
-await conn.sendFile(m.chat, media, 'thumbnail.jpg', txt, fkontak)
-await m.react('✔️')
-break
+const generateUniqueFilename = (mime) => {
+  const ext = (mime || 'image/jpeg').split('/')[1]?.split(';')[0] || 'jpg';
+  return `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 }
-case 'catbox': {
-if (!mime) return conn.reply(m.chat, `❀ Por favor, responde a una *Imagen* o *Vídeo.*`, m)
-await m.react('🕒')
-const media = await q.download()
-const isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime)
-const link = await catbox(media)
-const txt = `*乂 C A T B O X - U P L O A D E R 乂*\n\n*» Enlace* : ${link}\n*» Tamaño* : ${formatBytes(media.length)}\n*» Expiración* : ${isTele ? 'No expira' : 'Desconocido'}\n\n> *${dev}*`
-await conn.sendFile(m.chat, media, 'thumbnail.jpg', txt, fkontak)
-await m.react('✔️')
-break
-}}} catch (error) {
-await m.react('✖️')
-await conn.reply(m.chat, `⚠︎ Se ha producido un problema.\n> Usa *${usedPrefix}report* para informarlo.\n\n${error.message}`, m)
-}}
 
-handler.help = ['tourl', 'catbox']
-handler.tags = ['tools']
-handler.command = ['tourl', 'catbox']
+const uploadAdoFiles = async (buffer, mime) => {
+  const filename = generateUniqueFilename(mime)
+  const res = await axios.post("https://cdn.adoolab.xyz/api/upload", {
+    filename,
+    data: buffer.toString('base64'),
+    expiration: "never"
+  }, {
+    headers: {
+      "Content-Type": "application/json"
+    },
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity
+  })
 
-export default handler
+  const url = res.data?.url
+  if (!url || typeof url !== "string" || !url.startsWith("https://"))
+    throw new Error("Respuesta inválida de AdoFiles: " + JSON.stringify(res.data))
 
-function formatBytes(bytes) {
-if (bytes === 0) return '0 B'
-const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-const i = Math.floor(Math.log(bytes) / Math.log(1024))
-return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`
+  return url
 }
-async function shortUrl(url) {
-const res = await fetch(`https://tinyurl.com/api-create.php?url=${url}`)
-return await res.text()
+
+const uploadFare = async (buffer, mime) => {
+  const form = new FormData()
+  form.append("file", buffer, generateUniqueFilename(mime))
+  const res = await axios.post("https://u.fare.ink/api/upload", form, { headers: form.getHeaders(), maxContentLength: Infinity, maxBodyLength: Infinity })
+  const url = res.data?.file?.publicUrl
+  if (!url || typeof url !== "string" || !url.startsWith("https://"))
+    throw new Error("Respuesta inválida de Fare: " + JSON.stringify(res.data))
+  return url
 }
-async function catbox(content) {
-const { ext, mime } = (await fileTypeFromBuffer(content)) || {}
-const blob = new Blob([content.toArrayBuffer()], { type: mime })
-const formData = new FormData()
-const randomBytes = crypto.randomBytes(5).toString("hex")
-formData.append("reqtype", "fileupload")
-formData.append("fileToUpload", blob, randomBytes + "." + ext)
-const response = await fetch("https://catbox.moe/user/api.php", { method: "POST", body: formData, headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)" }})
-return await response.text()
+
+const uploadUguu = async (buffer, mime) => {
+  const form = new FormData()
+  form.append("files[]", buffer, generateUniqueFilename(mime))
+  const res = await axios.post("https://uguu.se/upload.php", form, { headers: form.getHeaders(), maxContentLength: Infinity, maxBodyLength: Infinity })
+  const url = res.data?.files?.[0]?.url
+  if (!url) throw new Error("Respuesta inválida de Uguu: " + JSON.stringify(res.data))
+  return url
+}
+
+const uploadAuto = async (buffer, mime) => {
+  for (const [fn, name] of [
+    [() => uploadAdoFiles(buffer, mime), "adofiles"],
+    [() => uploadFare(buffer, mime), "fare"],
+    [() => uploadUguu(buffer, mime), "uguu"]
+  ]) {
+    try { return { link: await fn(), server: name } } catch {}
+  }
+  throw new Error("Todos los servidores fallaron")
+}
+
+const formatBytes = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+export default {
+  command: ['tourl'],
+  category: 'utils',
+  description: 'Convertir una imagen en un enlace.',
+  run: async ({ msg, sock, args, usedPrefix, command }) => {
+    const q = msg.quoted || msg
+    const mime = (q.msg || q).mimetype || ''
+    if (!mime) {
+      return sock.reply(msg.chat, `《✧》 Por favor, responde a una imagen o video con *${usedPrefix + command} [servidor]* para convertirlo en URL.\n\n✿ Servidores disponibles:\n> › adofiles (permanente)\n> › fare\n> › uguu (temporal, 3h)\n> › auto (selecciona automáticamente)`, msg)
+    }
+    try {
+      const media = await q.download()
+      if (!media) return sock.reply(msg.chat, "ꕥ No se pudo descargar el archivo.", msg)
+      const serverArg = args[0]?.toLowerCase() || "adofiles"
+      const servers = {
+        adofiles: () => uploadAdoFiles(media, mime).then(link => ({ link, server: "adofiles" })),
+        fare: () => uploadFare(media, mime).then(link => ({ link, server: "fare" })),
+        uguu: () => uploadUguu(media, mime).then(link => ({ link, server: "uguu" })),
+        auto: () => uploadAuto(media, mime)
+      }
+      if (!servers[serverArg]) return sock.reply(msg.chat, `ꕥ Servidor no válido. Actuales disponibles: adofiles, fare, uguu o auto`, msg)
+      const { link, server } = await servers[serverArg]()
+      const user = db.getUser(msg.sender)
+      await sock.reply(msg.chat, `𖹭 ❀ *Upload To ${server.toUpperCase()}*\n\nׅ  ׄ  ✿   ׅ り *Link ›* ${link}\nׅ  ׄ  ✿   ׅ り *Peso ›* ${formatBytes(media.length)}\nׅ  ׄ  ✿   ׅ り *Tipo ›* ${mime.split("/")[1].toUpperCase() || "UNKNOWN"}\nׅ  ׄ  ✿   ׅ り *Solicitado por ›* ${user?.name || msg.pushName || 'Usuario'}`, msg);
+    } catch (e) {
+      await sock.reply(msg.chat, `> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`, msg);
+    }
+  }
 }
