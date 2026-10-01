@@ -1,12 +1,20 @@
 import fetch from 'node-fetch'
 
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+
+const PINTEREST_HOSTS = [
+  'https://www.pinterest.com',
+  'https://id.pinterest.com'
+]
+
 export default {
   command: ['pinterest', 'pin'],
   category: 'downloads',
   description: 'Buscar y descarga imágenes y videos de Pinterest.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
-    const text = args.join(' ')
-    const isPinterestUrl = /^https?:\/\//.test(text)
+    const text = args.join(' ').trim()
+    const isPinterestUrl = /^https?:\/\//i.test(text)
 
     if (!text) {
       return msg.reply('《✧》 Por favor, ingresa un término de búsqueda o un enlace de Pinterest.')
@@ -16,153 +24,767 @@ export default {
       if (isPinterestUrl) {
         const data = await getPinterestDownload(text)
 
-        if (!data) return msg.reply('ꕥ No se pudo obtener el contenido.')
-
-        const caption = `ㅤ۟∩　ׅ　★　ׅ　🅟𝖨𝖭 🅓ownload　ׄᰙ　\n\n${data.title ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Título* › ${data.title}\n` : ''}${data.description ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Descripción* › ${data.description}\n` : ''}${data.author ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Autor* › ${data.author}\n` : ''}${data.username ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Usuario* › ${data.username}\n` : ''}${data.followers ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Seguidores* › ${data.followers}\n` : ''}${data.uploadDate ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Fecha* › ${data.uploadDate}\n` : ''}${data.likes ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Likes* › ${data.likes}\n` : ''}${data.comments ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Comentarios* › ${data.comments}\n` : ''}${data.views ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Vistas* › ${data.views}\n` : ''}${data.saved ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Guardados* › ${data.saved}\n` : ''}${data.format ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Formato* › ${data.format}\n` : ''}𖣣ֶㅤ֯⌗ ☆  ⬭ *Enlace* › ${text}`
+        if (!data) {
+          return msg.reply('ꕥ No se pudo obtener el contenido.')
+        }
 
         if (data.type === 'video') {
+          const caption = `ㅤ۟∩　ׅ　★　ׅ　🅟𝖨𝖭 🅓ownload　ׄᰙ　\n\n${data.title ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Título* › ${data.title}\n` : ''}${data.description ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Descripción* › ${data.description}\n` : ''}${data.author ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Autor* › ${data.author}\n` : ''}${data.username ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Usuario* › ${data.username}\n` : ''}${data.followers !== null && data.followers !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Seguidores* › ${formatNumber(data.followers)}\n` : ''}${data.uploadDate ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Fecha* › ${data.uploadDate}\n` : ''}${data.likes !== null && data.likes !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Likes* › ${formatNumber(data.likes)}\n` : ''}${data.comments !== null && data.comments !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Comentarios* › ${formatNumber(data.comments)}\n` : ''}${data.views !== null && data.views !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Vistas* › ${formatNumber(data.views)}\n` : ''}${data.saved !== null && data.saved !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Guardados* › ${formatNumber(data.saved)}\n` : ''}${data.format ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Formato* › ${data.format}\n` : ''}𖣣ֶㅤ֯⌗ ☆  ⬭ *Enlace* › ${text}`
+
           await sock.sendMessage(
             msg.chat,
             {
-              video: { url: data.url },
+              video: data.buffer,
               caption,
               mimetype: 'video/mp4',
               fileName: data.filename || 'pin.mp4'
             },
             { quoted: msg }
           )
-        } else if (data.type === 'image') {
+
+          return
+        }
+
+        if (data.type === 'image') {
           await sock.sendMessage(
             msg.chat,
             {
-              image: { url: data.url },
+              image: data.buffer
+            },
+            { quoted: msg }
+          )
+
+          return
+        }
+
+        throw new Error('Contenido no soportado.')
+      }
+
+      const results = await getPinterestSearch(text, 10)
+
+      if (!results || results.length === 0) {
+        return msg.reply(`《✧》 No se encontraron resultados para *${text}*.`)
+      }
+
+      const medias = []
+
+      for (const r of results.slice(0, 10)) {
+        if (!r.image) continue
+
+        try {
+          const buffer = await downloadBuffer(r.image)
+
+          if (!buffer) continue
+
+          if (r.type === 'video') {
+            const caption = `ㅤ۟∩　ׅ　★　ׅ　🅟𝖨𝖭 🅢earch　ׄᰙ　\n\n${r.title ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Título* › ${r.title}\n` : ''}${r.description ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Descripción* › ${r.description}\n` : ''}${r.name ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Autor* › ${r.name}\n` : ''}${r.username ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Usuario* › ${r.username}\n` : ''}${r.followers !== null && r.followers !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Seguidores* › ${formatNumber(r.followers)}\n` : ''}${r.likes !== null && r.likes !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Likes* › ${formatNumber(r.likes)}\n` : ''}${r.comments !== null && r.comments !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Comentarios* › ${formatNumber(r.comments)}\n` : ''}${r.saves !== null && r.saves !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Guardados* › ${formatNumber(r.saves)}\n` : ''}${r.created_at ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Fecha* › ${formatPinterestDate(r.created_at)}\n` : ''}${r.format ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Formato* › ${r.format}\n` : ''}${r.url ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Enlace* › ${r.url}\n` : ''}`
+
+            medias.push({
+              type: 'video',
+              data: buffer,
               caption
+            })
+          } else {
+            medias.push({
+              type: 'image',
+              data: buffer,
+              caption: ''
+            })
+          }
+        } catch {}
+      }
+
+      if (!medias.length) {
+        return msg.reply(`《✧》 No se pudieron obtener descargas válidas para *${text}*.`)
+      }
+
+      if (medias.length === 1) {
+        const media = medias[0]
+
+        if (media.type === 'video') {
+          await sock.sendMessage(
+            msg.chat,
+            {
+              video: media.data,
+              caption: media.caption,
+              mimetype: 'video/mp4',
+              fileName: 'pinterest.mp4'
             },
             { quoted: msg }
           )
         } else {
-          throw new Error('Contenido no soportado.')
+          await sock.sendMessage(
+            msg.chat,
+            {
+              image: media.data
+            },
+            { quoted: msg }
+          )
         }
+
+        return
+      }
+
+      if (typeof sock.sendAlbumMessage === 'function') {
+        await sock.sendAlbumMessage(
+          msg.chat,
+          medias,
+          { quoted: msg }
+        )
       } else {
-        const results = await getPinterestSearch(text)
+        for (const media of medias) {
+          if (media.type === 'video') {
+            await sock.sendMessage(
+              msg.chat,
+              {
+                video: media.data,
+                caption: media.caption,
+                mimetype: 'video/mp4',
+                fileName: 'pinterest.mp4'
+              },
+              { quoted: msg }
+            )
+          } else {
+            await sock.sendMessage(
+              msg.chat,
+              {
+                image: media.data
+              },
+              { quoted: msg }
+            )
+          }
 
-        if (!results || results.length === 0) {
-          return msg.reply(`《✧》 No se encontraron resultados para *${text}*.`)
+          await sleep(500)
         }
-
-        const medias = results
-          .slice(0, 10)
-          .filter(r => r.image)
-          .map(r => ({
-            type: r.type === 'video' ? 'video' : 'image',
-            data: { url: r.image },
-            caption: `ㅤ۟∩　ׅ　★　ׅ　🅟𝖨𝖭 🅢earch　ׄᰙ　\n\n${r.title ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Título* › ${r.title}\n` : ''}${r.description ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Descripción* › ${r.description}\n` : ''}${r.name ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Autor* › ${r.name}\n` : ''}${r.username ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Usuario* › ${r.username}\n` : ''}${r.followers ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Seguidores* › ${r.followers}\n` : ''}${r.likes ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Likes* › ${r.likes}\n` : ''}${r.created_at ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Fecha* › ${r.created_at}\n` : ''}${r.url ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Enlace* › ${r.url}\n` : ''}`
-          }))
-
-        if (!medias.length) {
-          return msg.reply(`《✧》 No se pudieron obtener descargas válidas para *${text}*.`)
-        }
-
-        await sock.sendAlbumMessage(msg.chat, medias, { quoted: msg })
       }
     } catch (e) {
-      await msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      await msg.reply(
+        `> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`
+      )
     }
   }
 }
 
 async function getPinterestDownload(url) {
-  const endpoint = `https://fare.ink/dl/pin?url=${encodeURIComponent(url)}`
+  const clean = cleanUrl(url)
+
+  for (const host of PINTEREST_HOSTS) {
+    try {
+      const response = await fetch(clean, {
+        headers: {
+          'User-Agent': UA,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+        },
+        redirect: 'follow'
+      })
+
+      if (!response.ok) continue
+
+      const html = await response.text()
+      const metadata = extractPinMetadata(html)
+
+      const videos = extractVideoUrls(html)
+
+      if (videos.length) {
+        const videoUrl = videos[0]
+        const buffer = await downloadBuffer(videoUrl, clean)
+
+        if (buffer) {
+          return {
+            type: 'video',
+            url: videoUrl,
+            buffer,
+            format: 'mp4',
+            filename: 'pinterest.mp4',
+            ...metadata
+          }
+        }
+      }
+
+      const images = extractImageUrls(html)
+
+      if (images.length) {
+        const imageUrl = images[0]
+        const buffer = await downloadBuffer(imageUrl, clean)
+
+        if (buffer) {
+          return {
+            type: 'image',
+            url: imageUrl,
+            buffer,
+            format: getExtension(imageUrl),
+            filename: `pinterest.${getExtension(imageUrl)}`,
+            ...metadata
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return null
+}
+
+async function getPinterestSearch(query, limit = 10) {
+  try {
+    const results = await pinterestInternalSearch(query, limit)
+
+    if (results.length) {
+      return results.slice(0, limit)
+    }
+  } catch {}
 
   try {
-    const res = await fetchJson(endpoint)
+    const results = await pinterestHtmlSearch(query, limit)
 
-    if (!res.status || !res.resultado?.url) return null
+    return results.slice(0, limit)
+  } catch {}
 
-    const data = res.resultado
-    const filename = data.filename || ''
-    const mediaUrl = data.url || ''
-    const isVideo = /\.mp4(?:$|\?)/i.test(filename) || /\.mp4(?:$|\?)/i.test(mediaUrl)
-    const ext = filename.split('.').pop() || (isVideo ? 'mp4' : 'jpg')
+  return []
+}
 
-    return {
-      type: isVideo ? 'video' : 'image',
-      id: data.id || null,
-      title: data.titulo || null,
+async function pinterestInternalSearch(query, limit = 10) {
+  const host = PINTEREST_HOSTS[0]
+  const cookies = await getPinterestCookies(host)
+
+  const sourceUrl = `/search/pins/?q=${encodeURIComponent(query)}`
+
+  const data = {
+    options: {
+      query,
+      scope: 'pins',
+      page_size: limit
+    },
+    context: {}
+  }
+
+  const endpoint =
+    `${host}/resource/BaseSearchResource/get/?source_url=${encodeURIComponent(sourceUrl)}&data=${encodeURIComponent(JSON.stringify(data))}`
+
+  const response = await fetch(endpoint, {
+    headers: {
+      'User-Agent': UA,
+      Accept: 'application/json,text/javascript,*/*;q=0.01',
+      'X-CSRFToken': cookies.csrf || '',
+      'X-Pinterest-Source-Url': sourceUrl,
+      Referer: `${host}${sourceUrl}`,
+      Cookie: cookies.cookie || ''
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Pinterest respondió ${response.status}`)
+  }
+
+  const json = await response.json()
+
+  const results =
+    json?.resource_response?.data?.results ||
+    json?.resource_response?.data?.pins ||
+    []
+
+  return results
+    .map(pin => {
+      const image = getBestPinImage(pin)
+      const video = getBestPinVideo(pin)
+      const metadata = extractPinObjectMetadata(pin)
+
+      return {
+        ...metadata,
+        id: pin?.id || metadata.id || null,
+        type: video ? 'video' : 'image',
+        image: video || image || null,
+        url: pin?.link || pin?.url || null,
+        format: video ? 'mp4' : getExtension(image)
+      }
+    })
+    .filter(item => item.image)
+    .slice(0, limit)
+}
+
+async function pinterestHtmlSearch(query, limit = 10) {
+  const url =
+    `${PINTEREST_HOSTS[0]}/search/pins/?q=${encodeURIComponent(query)}`
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': UA,
+      Accept: 'text/html,application/xhtml+xml'
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Pinterest respondió ${response.status}`)
+  }
+
+  const html = await response.text()
+  const images = extractImageUrls(html)
+  const videos = extractVideoUrls(html)
+
+  const results = []
+
+  for (const video of videos) {
+    results.push({
+      type: 'video',
+      image: video,
+      title: null,
       description: null,
-      author: data.autor || null,
+      name: null,
       username: null,
       followers: null,
-      uploadDate: null,
       likes: null,
       comments: null,
-      views: null,
-      saved: null,
-      format: ext,
-      url: mediaUrl,
-      thumbnail: data.thumbnail || mediaUrl,
-      filename: filename || `pinterest.${ext}`
+      saves: null,
+      created_at: null,
+      format: 'mp4',
+      url: null
+    })
+
+    if (results.length >= limit) {
+      return results
     }
-  } catch {
-    return null
   }
+
+  for (const image of images) {
+    results.push({
+      type: 'image',
+      image,
+      title: null,
+      description: null,
+      name: null,
+      username: null,
+      followers: null,
+      likes: null,
+      comments: null,
+      saves: null,
+      created_at: null,
+      format: getExtension(image),
+      url: null
+    })
+
+    if (results.length >= limit) {
+      break
+    }
+  }
+
+  return results
 }
 
-async function getPinterestSearch(query) {
-  const endpoint = `https://fare.ink/search/pin?q=${encodeURIComponent(query)}&limit=20`
-
+async function getPinterestCookies(host) {
   try {
-    const res = await fetchJson(endpoint)
-
-    if (!res.status || !Array.isArray(res.results) || !res.results.length) return []
-
-    return res.results
-      .filter(d => d?.descarga)
-      .map(d => {
-        const tipo = String(d.tipo || '').toLowerCase()
-        const descarga = d.descarga || null
-        const isVideo = tipo === 'video' || /\.mp4(?:$|\?)/i.test(descarga || '')
-
-        return {
-          type: isVideo ? 'video' : 'image',
-          title: d.titulo || null,
-          description: null,
-          name: d.autor || null,
-          username: null,
-          followers: null,
-          likes: d.likes || null,
-          created_at: null,
-          image: descarga,
-          url: d.url || null,
-          source: d.url || null
-        }
-      })
-  } catch {
-    return []
-  }
-}
-
-async function fetchJson(url, timeout = 30000) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
-
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
+    const response = await fetch(host, {
       headers: {
-        accept: 'application/json',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36'
+        'User-Agent': UA,
+        Accept: 'text/html,application/xhtml+xml'
       }
     })
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`)
+    const setCookie = response.headers.get('set-cookie') || ''
+
+    const csrfMatch = setCookie.match(/csrftoken=([^;]+)/)
+    const sessionMatch = setCookie.match(/_pinterest_sess=([^;]+)/)
+
+    const cookies = []
+
+    if (csrfMatch) {
+      cookies.push(`csrftoken=${csrfMatch[1]}`)
     }
 
-    return await res.json()
-  } finally {
-    clearTimeout(timer)
+    if (sessionMatch) {
+      cookies.push(`_pinterest_sess=${sessionMatch[1]}`)
+    }
+
+    return {
+      csrf: csrfMatch ? csrfMatch[1] : '',
+      cookie: cookies.join('; ')
+    }
+  } catch {
+    return {
+      csrf: '',
+      cookie: ''
+    }
   }
+}
+
+async function downloadBuffer(url, referer = 'https://www.pinterest.com/') {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': UA,
+      Referer: referer,
+      Accept: '*/*'
+    },
+    redirect: 'follow'
+  })
+
+  if (!response.ok) {
+    throw new Error(`No se pudo descargar el archivo: ${response.status}`)
+  }
+
+  return Buffer.from(await response.arrayBuffer())
+}
+
+function getBestPinImage(pin) {
+  const images = pin?.images || {}
+
+  const candidates = [
+    images.orig,
+    images['1200x'],
+    images['736x'],
+    images['564x'],
+    images['474x'],
+    images['400x'],
+    images['236x'],
+    images['170x']
+  ]
+
+  for (const item of candidates) {
+    const url = typeof item === 'string' ? item : item?.url
+
+    if (url && isPinterestImage(url)) {
+      return originalPinterestUrl(url)
+    }
+  }
+
+  return null
+}
+
+function getBestPinVideo(pin) {
+  const videos = pin?.videos || {}
+
+  const candidates = [
+    videos.V_HLSV4,
+    videos.V_HLSV4?.url,
+    videos.video_list?.V_HLSV4,
+    videos.video_list?.V_HLSV4?.url
+  ]
+
+  for (const item of candidates) {
+    const url = typeof item === 'string' ? item : item?.url
+
+    if (url && isPinterestVideo(url)) {
+      return url
+    }
+  }
+
+  return null
+}
+
+function extractPinObjectMetadata(pin) {
+  const creator = pin?.pinner || pin?.user || pin?.creator || {}
+  const board = pin?.board || {}
+
+  return {
+    id: pin?.id || null,
+    title: pin?.title || pin?.grid_title || null,
+    description: pin?.description || pin?.description_html || null,
+    name:
+      creator?.full_name ||
+      creator?.name ||
+      null,
+    username:
+      creator?.username ||
+      null,
+    followers:
+      creator?.follower_count ??
+      creator?.followers_count ??
+      null,
+    likes:
+      pin?.like_count ??
+      pin?.likes ??
+      pin?.reaction_count ??
+      null,
+    comments:
+      pin?.comment_count ??
+      pin?.comments ??
+      null,
+    saves:
+      pin?.save_count ??
+      pin?.repin_count ??
+      pin?.saves ??
+      null,
+    created_at:
+      pin?.created_at ||
+      pin?.createdAt ||
+      null,
+    board:
+      board?.name ||
+      pin?.board_name ||
+      null,
+    board_id:
+      board?.id ||
+      pin?.board_id ||
+      null,
+    source:
+      pin?.link ||
+      pin?.url ||
+      null
+  }
+}
+
+function extractPinMetadata(html) {
+  const metadata = {
+    id: null,
+    title: null,
+    description: null,
+    author: null,
+    username: null,
+    followers: null,
+    likes: null,
+    comments: null,
+    views: null,
+    saved: null,
+    uploadDate: null,
+    source: null
+  }
+
+  try {
+    const jsonLdMatches = [
+      ...html.matchAll(
+        /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+      )
+    ]
+
+    for (const match of jsonLdMatches) {
+      try {
+        const parsed = JSON.parse(match[1])
+        const items = Array.isArray(parsed) ? parsed : [parsed]
+
+        for (const item of items) {
+          if (!item || typeof item !== 'object') continue
+
+          metadata.title =
+            metadata.title ||
+            item.name ||
+            item.headline ||
+            null
+
+          metadata.description =
+            metadata.description ||
+            item.description ||
+            null
+
+          metadata.source =
+            metadata.source ||
+            item.url ||
+            null
+
+          metadata.uploadDate =
+            metadata.uploadDate ||
+            item.datePublished ||
+            item.uploadDate ||
+            null
+
+          if (item.author) {
+            const author =
+              typeof item.author === 'string'
+                ? item.author
+                : item.author?.name
+
+            metadata.author =
+              metadata.author ||
+              author ||
+              null
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+
+  const idMatch =
+    html.match(/"pin_id":"?(\d+)"/i) ||
+    html.match(/"id":"(\d+)"/i)
+
+  if (idMatch) {
+    metadata.id = idMatch[1]
+  }
+
+  const usernameMatch =
+    html.match(/"username":"([^"]+)"/i)
+
+  if (usernameMatch) {
+    metadata.username = decodeHtml(usernameMatch[1])
+  }
+
+  const authorMatch =
+    html.match(/"full_name":"([^"]+)"/i)
+
+  if (authorMatch) {
+    metadata.author =
+      metadata.author ||
+      decodeHtml(authorMatch[1])
+  }
+
+  const followersMatch =
+    html.match(/"follower_count":(\d+)/i) ||
+    html.match(/"followers_count":(\d+)/i)
+
+  if (followersMatch) {
+    metadata.followers = Number(followersMatch[1])
+  }
+
+  const likesMatch =
+    html.match(/"like_count":(\d+)/i) ||
+    html.match(/"likes":(\d+)/i)
+
+  if (likesMatch) {
+    metadata.likes = Number(likesMatch[1])
+  }
+
+  const commentsMatch =
+    html.match(/"comment_count":(\d+)/i) ||
+    html.match(/"comments":(\d+)/i)
+
+  if (commentsMatch) {
+    metadata.comments = Number(commentsMatch[1])
+  }
+
+  const savesMatch =
+    html.match(/"save_count":(\d+)/i) ||
+    html.match(/"repin_count":(\d+)/i)
+
+  if (savesMatch) {
+    metadata.saved = Number(savesMatch[1])
+  }
+
+  const titleMatch =
+    html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i) ||
+    html.match(/<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)/i)
+
+  if (titleMatch) {
+    metadata.title =
+      metadata.title ||
+      decodeHtml(titleMatch[1])
+  }
+
+  const descriptionMatch =
+    html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)/i) ||
+    html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)/i)
+
+  if (descriptionMatch) {
+    metadata.description =
+      metadata.description ||
+      decodeHtml(descriptionMatch[1])
+  }
+
+  return metadata
+}
+
+function extractImageUrls(html) {
+  const urls = new Set()
+
+  const patterns = [
+    /https?:\\?\/\\?\/[^"'\\\s<>]+?\.pinimg\.com[^"'\\\s<>]*/gi,
+    /https?:\/\/[^"'\\\s<>]+?\.pinimg\.com[^"'\\\s<>]*/gi
+  ]
+
+  for (const pattern of patterns) {
+    const matches = html.match(pattern) || []
+
+    for (let url of matches) {
+      url = url
+        .replace(/\\u002F/g, '/')
+        .replace(/\\\//g, '/')
+        .replace(/\\u003D/g, '=')
+        .replace(/\\u0026/g, '&')
+        .replace(/&amp;/g, '&')
+        .replace(/["'\\]+$/g, '')
+
+      if (isPinterestImage(url)) {
+        urls.add(originalPinterestUrl(url))
+      }
+    }
+  }
+
+  return [...urls]
+}
+
+function extractVideoUrls(html) {
+  const urls = new Set()
+
+  const patterns = [
+    /https?:\\?\/\\?\/[^"'\\\s<>]+?\.pinimg\.com\/videos\/[^"'\\\s<>]+/gi,
+    /https?:\/\/[^"'\\\s<>]+?\.pinimg\.com\/videos\/[^"'\\\s<>]+/gi
+  ]
+
+  for (const pattern of patterns) {
+    const matches = html.match(pattern) || []
+
+    for (let url of matches) {
+      url = url
+        .replace(/\\u002F/g, '/')
+        .replace(/\\\//g, '/')
+        .replace(/\\u003D/g, '=')
+        .replace(/\\u0026/g, '&')
+        .replace(/&amp;/g, '&')
+        .replace(/["'\\]+$/g, '')
+
+      if (isPinterestVideo(url)) {
+        urls.add(url)
+      }
+    }
+  }
+
+  return [...urls]
+}
+
+function isPinterestImage(url) {
+  return /pinimg\.com\/.*\.(jpg|jpeg|png|webp)(?:\?|$)/i.test(url)
+}
+
+function isPinterestVideo(url) {
+  return /pinimg\.com\/videos\/.*\.(mp4|m3u8)(?:\?|$)/i.test(url)
+}
+
+function originalPinterestUrl(url) {
+  return url
+    .replace(/\/\d+x\d+\//i, '/originals/')
+    .replace(/\/\d+x\d+_/i, '/originals/')
+}
+
+function cleanUrl(url) {
+  return url.trim().replace(/[<>"']/g, '')
+}
+
+function decodeHtml(text) {
+  if (!text) return text
+
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
+function formatNumber(value) {
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) {
+    return value
+  }
+
+  return new Intl.NumberFormat('es').format(number)
+}
+
+function formatPinterestDate(value) {
+  try {
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) {
+      return value
+    }
+
+    return date.toLocaleString('es-HN', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    })
+  } catch {
+    return value
+  }
+}
+
+function getExtension(url) {
+  const match = url?.match(/\.([a-z0-9]+)(?:\?|$)/i)
+  return match ? match[1].toLowerCase() : 'jpg'
 }
 
 function sleep(ms) {
