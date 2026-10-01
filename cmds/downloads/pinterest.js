@@ -1,9 +1,4 @@
 import fetch from 'node-fetch'
-import {
-  generateWAMessageFromContent,
-  generateWAMessage,
-  delay
-} from '@whiskeysockets/baileys'
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
@@ -13,81 +8,16 @@ const PINTEREST_HOSTS = [
   'https://id.pinterest.com'
 ]
 
-async function sendAlbumMessage(conn, jid, medias, options = {}) {
-  if (!Array.isArray(medias) || medias.length < 2)
-    throw new RangeError('Se requieren mínimo 2 imágenes')
-
-  const caption = options.caption || ''
-  const wait = !isNaN(options.delay) ? options.delay : 500
-
-  const album = generateWAMessageFromContent(
-    jid,
-    {
-      albumMessage: {
-        expectedImageCount: medias.length,
-        expectedVideoCount: 0,
-        ...(options.quoted
-          ? {
-              contextInfo: {
-                remoteJid: options.quoted.key.remoteJid,
-                fromMe: options.quoted.key.fromMe,
-                stanzaId: options.quoted.key.id,
-                participant:
-                  options.quoted.key.participant ||
-                  options.quoted.key.remoteJid,
-                quotedMessage: options.quoted.message
-              }
-            }
-          : {})
-      }
-    },
-    {}
-  )
-
-  await conn.relayMessage(album.key.remoteJid, album.message, {
-    messageId: album.key.id
-  })
-
-  for (let i = 0; i < medias.length; i++) {
-    const msg = await generateWAMessage(
-      album.key.remoteJid,
-      {
-        image: medias[i],
-        ...(i === 0 ? { caption } : {})
-      },
-      {
-        upload: conn.waUploadToServer
-      }
-    )
-
-    msg.message.messageContextInfo = {
-      messageAssociation: {
-        associationType: 1,
-        parentMessageKey: album.key
-      }
-    }
-
-    await conn.relayMessage(msg.key.remoteJid, msg.message, {
-      messageId: msg.key.id
-    })
-
-    await delay(wait)
-  }
-}
-
 export default {
   command: ['pinterest', 'pin'],
   category: 'downloads',
   description: 'Buscar y descarga imágenes y videos de Pinterest.',
-
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     const text = args.join(' ').trim()
     const isPinterestUrl = /^https?:\/\//i.test(text)
 
     if (!text) {
-      return msg.reply(
-        '《✧》 Por favor, ingresa un término de búsqueda o un enlace de Pinterest.'
-      )
+      return msg.reply('《✧》 Por favor, ingresa un término de búsqueda o un enlace de Pinterest.')
     }
 
     try {
@@ -144,7 +74,7 @@ export default {
         try {
           const buffer = await downloadBuffer(r.image)
 
-          if (!buffer) continue
+          if (!buffer || buffer.length < 1000) continue
 
           if (r.type === 'video') {
             const caption = `ㅤ۟∩　ׅ　★　ׅ　🅟𝖨𝖭 🅢earch　ׄᰙ　\n\n${r.title ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Título* › ${r.title}\n` : ''}${r.description ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Descripción* › ${r.description}\n` : ''}${r.name ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Autor* › ${r.name}\n` : ''}${r.username ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Usuario* › ${r.username}\n` : ''}${r.followers !== null && r.followers !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Seguidores* › ${formatNumber(r.followers)}\n` : ''}${r.likes !== null && r.likes !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Likes* › ${formatNumber(r.likes)}\n` : ''}${r.comments !== null && r.comments !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Comentarios* › ${formatNumber(r.comments)}\n` : ''}${r.saves !== null && r.saves !== undefined ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Guardados* › ${formatNumber(r.saves)}\n` : ''}${r.created_at ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Fecha* › ${formatPinterestDate(r.created_at)}\n` : ''}${r.format ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Formato* › ${r.format}\n` : ''}${r.url ? `𖣣ֶㅤ֯⌗ ☆  ⬭ *Enlace* › ${r.url}\n` : ''}`
@@ -165,9 +95,7 @@ export default {
       }
 
       if (!medias.length) {
-        return msg.reply(
-          `《✧》 No se pudieron obtener descargas válidas para *${text}*.`
-        )
+        return msg.reply(`《✧》 No se pudieron obtener descargas válidas para *${text}*.`)
       }
 
       if (medias.length === 1) {
@@ -204,17 +132,30 @@ export default {
           { quoted: msg }
         )
       } else {
-        await sendAlbumMessage(
-          sock,
-          msg.chat,
-          medias
-            .filter(x => x.type === 'image')
-            .map(x => x.data),
-          {
-            quoted: msg,
-            caption: ''
+        for (const media of medias) {
+          if (media.type === 'video') {
+            await sock.sendMessage(
+              msg.chat,
+              {
+                video: media.data,
+                caption: media.caption,
+                mimetype: 'video/mp4',
+                fileName: 'pinterest.mp4'
+              },
+              { quoted: msg }
+            )
+          } else {
+            await sock.sendMessage(
+              msg.chat,
+              {
+                image: media.data
+              },
+              { quoted: msg }
+            )
           }
-        )
+
+          await sleep(500)
+        }
       }
     } catch (e) {
       await msg.reply(
@@ -232,9 +173,7 @@ async function getPinterestDownload(url) {
       const response = await fetch(clean, {
         headers: {
           'User-Agent': UA,
-          Accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
         },
         redirect: 'follow'
       })
@@ -289,43 +228,30 @@ async function getPinterestSearch(query, limit = 10) {
   try {
     const results = await pinterestInternalSearch(query, limit)
 
+    if (results.length >= limit) {
+      return results.slice(0, limit)
+    }
+
     if (results.length) {
       return results.slice(0, limit)
     }
-  } catch (error) {
-    console.warn(
-      '[PINTEREST INTERNAL SEARCH]',
-      error.message
-    )
-  }
-
-  try {
-    const results = await pinterestHtmlSearch(query, limit)
-
-    return results.slice(0, limit)
-  } catch (error) {
-    console.warn(
-      '[PINTEREST HTML SEARCH]',
-      error.message
-    )
-  }
+  } catch {}
 
   return []
 }
 
 async function pinterestInternalSearch(query, limit = 10) {
-  let lastError = null
+  const results = []
+  const seen = new Set()
 
   for (const host of PINTEREST_HOSTS) {
-    try {
-      const auth = await getPinterestCookies(host)
+    if (results.length >= limit) break
 
-      const sourceUrl =
-        `/search/pins/?q=${encodeURIComponent(query)}`
+    try {
+      const cookies = await getPinterestCookies(host)
+      const sourceUrl = `/search/pins/?q=${encodeURIComponent(query)}`
 
       let bookmark = null
-      const results = []
-      const seen = new Set()
 
       while (results.length < limit) {
         const data = {
@@ -337,320 +263,166 @@ async function pinterestInternalSearch(query, limit = 10) {
           context: {}
         }
 
-        const body =
-          `source_url=${encodeURIComponent(sourceUrl)}` +
-          `&data=${encodeURIComponent(JSON.stringify(data))}`
+        const endpoint =
+          `${host}/resource/BaseSearchResource/get/`
 
-        const response = await fetch(
-          `${host}/resource/BaseSearchResource/get/`,
-          {
-            method: 'POST',
-            headers: {
-              Accept:
-                'application/json, text/javascript, */*; q=0.01',
-              'Content-Type':
-                'application/x-www-form-urlencoded; charset=UTF-8',
-              'User-Agent': UA,
-              'X-Requested-With': 'XMLHttpRequest',
-              'X-CSRFToken': auth.csrf,
-              'X-Pinterest-Source-Url': sourceUrl,
-              Cookie: auth.cookie,
-              Referer: `${host}${sourceUrl}`
-            },
-            body
-          }
-        )
+        const body =
+          `source_url=${encodeURIComponent(sourceUrl)}&data=${encodeURIComponent(JSON.stringify(data))}`
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'User-Agent': UA,
+            Accept: 'application/json,text/javascript,*/*;q=0.01',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': cookies.csrf || '',
+            'X-Pinterest-Source-Url': sourceUrl,
+            Referer: `${host}${sourceUrl}`,
+            Cookie: cookies.cookie || ''
+          },
+          body
+        })
 
         if (!response.ok) {
-          throw new Error(
-            `Pinterest HTTP ${response.status}`
-          )
+          throw new Error(`Pinterest respondió ${response.status}`)
         }
 
         const json = await response.json()
-
         const resource = json?.resource_response
         const pins = resource?.data?.results
 
-        if (!Array.isArray(pins)) {
-          throw new Error(
-            'Pinterest no devolvió resultados válidos'
-          )
+        if (!Array.isArray(pins) || !pins.length) {
+          break
         }
 
         for (const pin of pins) {
-          if (!pin || typeof pin !== 'object')
-            continue
+          if (results.length >= limit) break
 
-          const images = pin.images
+          const image = getBestPinImage(pin)
 
-          if (!images || typeof images !== 'object')
+          if (!image) continue
+
+          const original = originalPinterestUrl(image)
+
+          if (!original || !isRealPinterestPinImage(original)) {
             continue
+          }
+
+          const key = cleanUrl(original).split('?')[0]
+
+          if (seen.has(key)) continue
+
+          seen.add(key)
 
           const video = getBestPinVideo(pin)
-
-          const candidates = [
-            images.orig?.url,
-            images['1200x']?.url,
-            images['736x']?.url,
-            images['564x']?.url,
-            images['474x']?.url,
-            images['400x']?.url,
-            images['236x']?.url,
-            images['170x']?.url
-          ]
-
-          const image = candidates
-            .map(cleanUrl)
-            .find(isPinterestImage)
-
-          if (!image && !video)
-            continue
-
-          const mediaUrl = video || originalPinterestUrl(image)
-
-          if (!mediaUrl || seen.has(mediaUrl))
-            continue
-
-          seen.add(mediaUrl)
-
-          const metadata =
-            extractPinObjectMetadata(pin)
+          const metadata = extractPinObjectMetadata(pin)
 
           results.push({
             ...metadata,
             id: pin?.id || metadata.id || null,
             type: video ? 'video' : 'image',
-            image: mediaUrl,
-            url:
-              pin?.link ||
-              pin?.url ||
-              metadata.source ||
-              null,
-            format: video
-              ? 'mp4'
-              : getExtension(mediaUrl)
+            image: video || original,
+            url: pin?.link || pin?.url || null,
+            format: video ? 'mp4' : getExtension(original)
           })
-
-          if (results.length >= limit)
-            break
         }
 
-        bookmark = resource?.bookmark
+        const nextBookmark = resource?.bookmark
 
         if (
-          !bookmark ||
+          !nextBookmark ||
+          nextBookmark === bookmark ||
           pins.length === 0 ||
           results.length >= limit
         ) {
           break
         }
+
+        bookmark = nextBookmark
       }
-
-      if (results.length) {
-        return results.slice(0, limit)
-      }
-
-      throw new Error(
-        'Pinterest no encontró resultados para esa búsqueda'
-      )
-    } catch (error) {
-      lastError = error
-    }
+    } catch {}
   }
 
-  throw (
-    lastError ||
-    new Error('Falló la búsqueda interna de Pinterest')
-  )
-}
-
-async function pinterestHtmlSearch(query, limit = 10) {
-  const url =
-    `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(query)}`
-
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': UA,
-      Accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      Referer: 'https://www.pinterest.com/'
-    },
-    redirect: 'follow'
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `Pinterest HTML HTTP ${response.status}`
-    )
-  }
-
-  const html = await response.text()
-
-  const images = extractImageUrls(html)
-  const videos = extractVideoUrls(html)
-
-  const results = []
-  const seen = new Set()
-
-  for (const video of videos) {
-    if (seen.has(video))
-      continue
-
-    seen.add(video)
-
-    results.push({
-      type: 'video',
-      image: video,
-      title: null,
-      description: null,
-      name: null,
-      username: null,
-      followers: null,
-      likes: null,
-      comments: null,
-      saves: null,
-      created_at: null,
-      format: 'mp4',
-      url: null
-    })
-
-    if (results.length >= limit)
-      return results
-  }
-
-  for (const image of images) {
-    const original = originalPinterestUrl(image)
-
-    if (!original || seen.has(original))
-      continue
-
-    seen.add(original)
-
-    results.push({
-      type: 'image',
-      image: original,
-      title: null,
-      description: null,
-      name: null,
-      username: null,
-      followers: null,
-      likes: null,
-      comments: null,
-      saves: null,
-      created_at: null,
-      format: getExtension(original),
-      url: null
-    })
-
-    if (results.length >= limit)
-      break
-  }
-
-  return results
+  return results.slice(0, limit)
 }
 
 async function getPinterestCookies(host) {
   try {
-    const response = await fetch(`${host}/`, {
+    const response = await fetch(host, {
       headers: {
         'User-Agent': UA,
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
-      },
-      redirect: 'follow'
+        Accept: 'text/html,application/xhtml+xml'
+      }
     })
 
-    const raw =
-      typeof response.headers.raw === 'function'
-        ? response.headers.raw()['set-cookie'] || []
-        : []
+    const setCookie = response.headers.get('set-cookie') || ''
+
+    const csrfMatch = setCookie.match(/csrftoken=([^;]+)/)
+    const sessionMatch = setCookie.match(/_pinterest_sess=([^;]+)/)
 
     const cookies = []
 
-    for (const cookie of raw) {
-      const value = cookie.split(';')[0]
-
-      if (
-        value.startsWith('csrftoken=') ||
-        value.startsWith('_pinterest_sess=')
-      ) {
-        cookies.push(value)
-      }
+    if (csrfMatch) {
+      cookies.push(`csrftoken=${csrfMatch[1]}`)
     }
 
-    const csrf =
-      cookies
-        .find(x => x.startsWith('csrftoken='))
-        ?.split('=')
-        .slice(1)
-        .join('=') || ''
+    if (sessionMatch) {
+      cookies.push(`_pinterest_sess=${sessionMatch[1]}`)
+    }
 
     return {
-      cookie: cookies.join('; '),
-      csrf
+      csrf: csrfMatch ? csrfMatch[1] : '',
+      cookie: cookies.join('; ')
     }
   } catch {
     return {
-      cookie: '',
-      csrf: ''
+      csrf: '',
+      cookie: ''
     }
   }
 }
 
-async function downloadBuffer(
-  url,
-  referer = 'https://www.pinterest.com/'
-) {
+async function downloadBuffer(url, referer = 'https://www.pinterest.com/') {
   const response = await fetch(url, {
     headers: {
       'User-Agent': UA,
-      Accept: '*/*',
-      Referer: referer
+      Referer: referer,
+      Accept: '*/*'
     },
     redirect: 'follow'
   })
 
   if (!response.ok) {
-    throw new Error(
-      `No se pudo descargar el medio: HTTP ${response.status}`
-    )
+    throw new Error(`No se pudo descargar el archivo: ${response.status}`)
   }
 
-  const buffer = Buffer.from(
-    await response.arrayBuffer()
-  )
-
-  if (!buffer.length) {
-    throw new Error(
-      'Pinterest devolvió un archivo vacío'
-    )
-  }
-
-  return buffer
+  return Buffer.from(await response.arrayBuffer())
 }
 
 function getBestPinImage(pin) {
   const images = pin?.images || {}
 
   const candidates = [
-    images.orig?.url,
-    images['1200x']?.url,
-    images['736x']?.url,
-    images['564x']?.url,
-    images['474x']?.url,
-    images['400x']?.url,
-    images['236x']?.url,
-    images['170x']?.url
+    images.orig,
+    images['1200x'],
+    images['736x'],
+    images['564x'],
+    images['474x'],
+    images['400x'],
+    images['236x'],
+    images['170x']
   ]
 
   for (const item of candidates) {
-    const url = cleanUrl(item)
+    const url = typeof item === 'string' ? item : item?.url
 
-    if (url && isPinterestImage(url)) {
-      return originalPinterestUrl(url)
+    if (!url || !isPinterestImage(url)) continue
+
+    const original = originalPinterestUrl(url)
+
+    if (isRealPinterestPinImage(original)) {
+      return original
     }
   }
 
@@ -661,18 +433,14 @@ function getBestPinVideo(pin) {
   const videos = pin?.videos || {}
 
   const candidates = [
-    videos.V_HLSV4?.url,
     videos.V_HLSV4,
-    videos.video_list?.V_HLSV4?.url,
+    videos.V_HLSV4?.url,
     videos.video_list?.V_HLSV4,
-    videos.V_720P?.url,
-    videos.V_720P,
-    videos.V_1080P?.url,
-    videos.V_1080P
+    videos.video_list?.V_HLSV4?.url
   ]
 
   for (const item of candidates) {
-    const url = cleanUrl(item)
+    const url = typeof item === 'string' ? item : item?.url
 
     if (url && isPinterestVideo(url)) {
       return url
@@ -683,24 +451,13 @@ function getBestPinVideo(pin) {
 }
 
 function extractPinObjectMetadata(pin) {
-  const creator =
-    pin?.pinner ||
-    pin?.user ||
-    pin?.creator ||
-    {}
-
+  const creator = pin?.pinner || pin?.user || pin?.creator || {}
   const board = pin?.board || {}
 
   return {
     id: pin?.id || null,
-    title:
-      pin?.title ||
-      pin?.grid_title ||
-      null,
-    description:
-      pin?.description ||
-      pin?.description_html ||
-      null,
+    title: pin?.title || pin?.grid_title || null,
+    description: pin?.description || pin?.description_html || null,
     name:
       creator?.full_name ||
       creator?.name ||
@@ -771,13 +528,10 @@ function extractPinMetadata(html) {
     for (const match of jsonLdMatches) {
       try {
         const parsed = JSON.parse(match[1])
-        const items = Array.isArray(parsed)
-          ? parsed
-          : [parsed]
+        const items = Array.isArray(parsed) ? parsed : [parsed]
 
         for (const item of items) {
-          if (!item || typeof item !== 'object')
-            continue
+          if (!item || typeof item !== 'object') continue
 
           metadata.title =
             metadata.title ||
@@ -821,15 +575,15 @@ function extractPinMetadata(html) {
     html.match(/"pin_id":"?(\d+)"/i) ||
     html.match(/"id":"(\d+)"/i)
 
-  if (idMatch)
+  if (idMatch) {
     metadata.id = idMatch[1]
+  }
 
   const usernameMatch =
     html.match(/"username":"([^"]+)"/i)
 
   if (usernameMatch) {
-    metadata.username =
-      decodeHtml(usernameMatch[1])
+    metadata.username = decodeHtml(usernameMatch[1])
   }
 
   const authorMatch =
@@ -845,37 +599,37 @@ function extractPinMetadata(html) {
     html.match(/"follower_count":(\d+)/i) ||
     html.match(/"followers_count":(\d+)/i)
 
-  if (followersMatch)
+  if (followersMatch) {
     metadata.followers = Number(followersMatch[1])
+  }
 
   const likesMatch =
     html.match(/"like_count":(\d+)/i) ||
     html.match(/"likes":(\d+)/i)
 
-  if (likesMatch)
+  if (likesMatch) {
     metadata.likes = Number(likesMatch[1])
+  }
 
   const commentsMatch =
     html.match(/"comment_count":(\d+)/i) ||
     html.match(/"comments":(\d+)/i)
 
-  if (commentsMatch)
+  if (commentsMatch) {
     metadata.comments = Number(commentsMatch[1])
+  }
 
   const savesMatch =
     html.match(/"save_count":(\d+)/i) ||
     html.match(/"repin_count":(\d+)/i)
 
-  if (savesMatch)
+  if (savesMatch) {
     metadata.saved = Number(savesMatch[1])
+  }
 
   const titleMatch =
-    html.match(
-      /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i
-    ) ||
-    html.match(
-      /<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)/i
-    )
+    html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i) ||
+    html.match(/<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)/i)
 
   if (titleMatch) {
     metadata.title =
@@ -884,12 +638,8 @@ function extractPinMetadata(html) {
   }
 
   const descriptionMatch =
-    html.match(
-      /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)/i
-    ) ||
-    html.match(
-      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)/i
-    )
+    html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)/i) ||
+    html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)/i)
 
   if (descriptionMatch) {
     metadata.description =
@@ -912,10 +662,21 @@ function extractImageUrls(html) {
     const matches = html.match(pattern) || []
 
     for (let url of matches) {
-      url = cleanUrl(url)
+      url = url
+        .replace(/\\u002F/g, '/')
+        .replace(/\\\//g, '/')
+        .replace(/\\u003D/g, '=')
+        .replace(/\\u0026/g, '&')
+        .replace(/&amp;/g, '&')
+        .replace(/["'\\]+$/g, '')
 
-      if (isPinterestImage(url)) {
-        urls.add(originalPinterestUrl(url))
+      const original = originalPinterestUrl(url)
+
+      if (
+        isPinterestImage(original) &&
+        isRealPinterestPinImage(original)
+      ) {
+        urls.add(original)
       }
     }
   }
@@ -935,7 +696,13 @@ function extractVideoUrls(html) {
     const matches = html.match(pattern) || []
 
     for (let url of matches) {
-      url = cleanUrl(url)
+      url = url
+        .replace(/\\u002F/g, '/')
+        .replace(/\\\//g, '/')
+        .replace(/\\u003D/g, '=')
+        .replace(/\\u0026/g, '&')
+        .replace(/&amp;/g, '&')
+        .replace(/["'\\]+$/g, '')
 
       if (isPinterestVideo(url)) {
         urls.add(url)
@@ -946,84 +713,49 @@ function extractVideoUrls(html) {
   return [...urls]
 }
 
-function cleanUrl(url) {
-  if (!url) return null
-
-  return String(url)
-    .replace(/\\u002F/gi, '/')
-    .replace(/\\u0026/gi, '&')
-    .replace(/\\u003D/gi, '=')
-    .replace(/\\u003F/gi, '?')
-    .replace(/\\\//g, '/')
-    .replace(/&amp;/gi, '&')
-    .replace(/\\+"/g, '"')
-    .trim()
+function isPinterestImage(url) {
+  return /pinimg\.com\/.*\.(jpg|jpeg|png|webp)(?:\?|$)/i.test(url)
 }
 
-function isPinterestImage(url) {
-  if (!url) return false
+function isRealPinterestPinImage(url) {
+  if (!isPinterestImage(url)) return false
 
-  return /^https?:\/\/[^"'\\ ]*pinimg\.com\/(?:originals|1200x|736x|564x|474x|400x|236x|170x|60x60)\//i.test(
-    cleanUrl(url)
-  )
+  const value = url.toLowerCase()
+
+  if (
+    value.includes('/pinimg.com/avatars/') ||
+    value.includes('/pinimg.com/favicons/') ||
+    value.includes('/pinimg.com/webapp/') ||
+    value.includes('/pinimg.com/logos/') ||
+    value.includes('/pinimg.com/assets/')
+  ) {
+    return false
+  }
+
+  if (
+    value.includes('logo') ||
+    value.includes('pinterest-icon') ||
+    value.includes('favicon') ||
+    value.includes('pinterest-logo')
+  ) {
+    return false
+  }
+
+  return true
 }
 
 function isPinterestVideo(url) {
-  if (!url) return false
-
-  const value = cleanUrl(url)
-
-  return (
-    /pinimg\.com\/videos\//i.test(value) &&
-    /\.(?:mp4|m4v)(?:[?#&]|$)/i.test(value)
-  )
+  return /pinimg\.com\/videos\/.*\.(mp4|m3u8)(?:\?|$)/i.test(url)
 }
 
 function originalPinterestUrl(url) {
-  url = cleanUrl(url)
-
-  if (!url) return null
-
-  try {
-    const parsed = new URL(url)
-
-    if (!parsed.hostname.includes('pinimg.com'))
-      return url
-
-    parsed.pathname = parsed.pathname.replace(
-      /^\/(?:1200x|736x|564x|474x|400x|236x|170x|60x60)\//i,
-      '/originals/'
-    )
-
-    return parsed.toString()
-  } catch {
-    return url
-  }
+  return url
+    .replace(/\/\d+x\d+\//i, '/originals/')
+    .replace(/\/\d+x\d+_/i, '/originals/')
 }
 
-function formatNumber(value) {
-  const number = Number(value)
-
-  if (!Number.isFinite(number))
-    return value
-
-  return new Intl.NumberFormat('es').format(number)
-}
-
-function formatPinterestDate(value) {
-  try {
-    const date = new Date(value)
-
-    if (Number.isNaN(date.getTime()))
-      return value
-
-    return date.toLocaleString('es-HN', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    })
-  } catch {
-    return value
-  }
+function cleanUrl(url) {
+  return url.trim().replace(/[<>"']/g, '')
 }
 
 function decodeHtml(text) {
@@ -1037,15 +769,24 @@ function decodeHtml(text) {
     .replace(/&gt;/g, '>')
 }
 
-function getExtension(url) {
-  const match =
-    url?.match(/\.([a-z0-9]+)(?:\?|$)/i)
+function formatNumber(value) {
+  const number = Number(value)
 
-  return match
-    ? match[1].toLowerCase()
-    : 'jpg'
+  if (!Number.isFinite(number)) {
+    return value
+  }
+
+  return new Intl.NumberFormat('es').format(number)
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+function formatPinterestDate(value) {
+  try {
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) {
+      return value
+    }
+
+    return date.toLocaleString('es-HN', {
+      dateStyle: 'medium',
+  
