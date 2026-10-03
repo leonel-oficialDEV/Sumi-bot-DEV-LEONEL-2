@@ -789,4 +789,19 @@ function formatPinterestDate(value) {
 
     return date.toLocaleString('es-HN', {
       dateStyle: 'medium',
+timeStyle: 'short'
+    })
+  } catch {
+    return value
+  }
+}
+
+function getExtension(url) {
+  const match = url?.match(/\.([a-z0-9]+)(?:\?|$)/i)
+  return match ? match[1].toLowerCase() : 'jpg'
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
   
