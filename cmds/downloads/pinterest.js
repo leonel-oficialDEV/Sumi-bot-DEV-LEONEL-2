@@ -1,18 +1,4 @@
-timeStyle: 'short'
-    })
-  } catch {
-    return value
-  }
-}
-
-function getExtension(url) {
-  const match = url?.match(/\.([a-z0-9]+)(?:\?|$)/i)
-  return match ? match[1].toLowerCase() : 'jpg'
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}import fetch from 'node-fetch'
+import fetch from 'node-fetch'
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
