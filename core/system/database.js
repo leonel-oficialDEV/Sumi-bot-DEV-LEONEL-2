@@ -118,7 +118,7 @@ export const defSets = {
   newsletter_id: '120363324350463849@newsletter',
   nameid: '❤️CHANNEL - OFICIAL❤️',
   type: 'Owner',
-  link: 'https://api.SUMI.my.id',
+  link: 'https://whatsapp.com/channel/0029Vagdmfv1SWt5nfdR4z3w',
   banner: 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
   icon: 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
   currency: 'Yenes',
