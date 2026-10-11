@@ -189,14 +189,14 @@ export function initDB() {
       prefix TEXT DEFAULT '[\"/\",\"!\",\".\",\"#\"]',
       commandsejecut INTEGER DEFAULT 0,
       newsletter_id TEXT DEFAULT '120363324350463849@newsletter',
-      nameid TEXT DEFAULT '❤️CHANNEL - OFICIAL❤️',
+      nameid TEXT DEFAULT '꧁⃟⃝❀̷̸᮫ִּׁ᳟፝֟࠭͠𐋕CHANNEL - OFICIAL꧂',
       type TEXT DEFAULT 'Owner',
       link TEXT DEFAULT 'https://api.SUMI-.my.id',
       banner TEXT DEFAULT 'https://cdn.yuki-wabot.my.id/files/6VvE.jpeg',
       icon TEXT DEFAULT 'https://cdn.yuki-wabot.my.id/files/6VvE.jpeg',
       currency TEXT DEFAULT 'Yenes',
-      namebot TEXT DEFAULT '❤️SUMI❤️',
-      botname TEXT DEFAULT '❤️SUMI SAKURASAWA❤️',
+      namebot TEXT DEFAULT 'SUMI',
+      botname TEXT DEFAULT '⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪𝚂͟𝚄͟𝙼͟𝙸͟ 𝚂͟𝙰͟𝙺͟𝚄͟𝚁͟𝙰͟𝚂͟𝙰͟𝚆͟𝙰݊⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪',
       owner TEXT DEFAULT ''
     )`);
   db.exec(`CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, data TEXT)`);
