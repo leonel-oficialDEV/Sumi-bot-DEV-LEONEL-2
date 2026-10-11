@@ -118,12 +118,12 @@ export const defSets = {
   newsletter_id: '120363324350463849@newsletter',
   nameid: '꧁⃟⃝❀̷̸᮫ִּׁ᳟፝֟࠭͠𐋕CHANNEL - OFICIAL꧂',
   type: 'Owner',
-  link: 'https://whatsapp.com/channel/0029Vagdmfv1SWt5nfdR4z3w',
+  link: 'https://chat.whatsapp.com/DVXaI5Xf2wf7OUHgM3s5eq?s=cl&p=a&mlu=4&ilr=4',
   banner: 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
   icon: 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
   currency: 'Yenes',
-  namebot: '❤️SUMI❤️',
-  botname: '❤️SUMI SAKURASAWA❤️',
+  namebot: 'SUMI',
+  botname: '⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪𝚂͟𝚄͟𝙼͟𝙸͟ 𝚂͟𝙰͟𝙺͟𝚄͟𝚁͟𝙰͟𝚂͟𝙰͟𝚆͟𝙰݊⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪',
   owner: ''
 };
 
