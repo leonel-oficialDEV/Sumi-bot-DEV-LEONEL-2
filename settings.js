@@ -6,7 +6,7 @@ global.owner = ['393715279301', '393715279301'];
 
 global.dev = "© ⍴᥆ᥕᥱrᥱძ ᑲᥡ ⁱᵃᵐLEONEL";
 global.links = {
-  api: 'https://api.yuki-wabot.my.id',
+  api: 'https://chat.whatsapp.com/DVXaI5Xf2wf7OUHgM3s5eq?s=cl&p=a&mlu=4&ilr=4',
   channel: "https://whatsapp.com/channel/0029Vb64nWqLo4hb8cuxe23n",
   github: "https://github.com/iamDestroy/YukiBot-MD",
   gmail: "thekingdestroy507@gmail.com"
