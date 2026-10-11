@@ -191,7 +191,7 @@ export function initDB() {
       newsletter_id TEXT DEFAULT '120363324350463849@newsletter',
       nameid TEXT DEFAULT '꧁⃟⃝❀̷̸᮫ִּׁ᳟፝֟࠭͠𐋕CHANNEL - OFICIAL꧂',
       type TEXT DEFAULT 'Owner',
-      link TEXT DEFAULT 'https://api.SUMI-.my.id',
+      link TEXT DEFAULT 'https://chat.whatsapp.com/DVXaI5Xf2wf7OUHgM3s5eq?s=cl&p=a&mlu=4&ilr=4',
       banner TEXT DEFAULT 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
       icon TEXT DEFAULT 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
       currency TEXT DEFAULT 'Yenes',
