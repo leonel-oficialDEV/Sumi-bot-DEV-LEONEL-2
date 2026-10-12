@@ -7,15 +7,15 @@ import pino from 'pino';
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { smsg, patchGroupMetadata } from '#serialize';
+import { smsg, patchGroupMetadata, getCachedMeta } from '#serialize';
 import db from '#db';
+import { createSignalCache } from '#core/signal-cache';
+import { beginMessage, instrumentSocket } from '#core/latency';
 
 if (!global.conns) global.conns = [];
 let reintentos = {};
 let commandFlags = {};
 const cleanJid = (jid = '') => jid.replace(/:\d+/, '').split('@')[0];
-const msgRetryCounterCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
-const userDevicesCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 });
 const sessionsPath = path.resolve(process.cwd(), 'Sessions');
 const subsPath = path.join(sessionsPath, 'Subs');
 
@@ -27,6 +27,28 @@ function getClient(client) {
   const userId = client?.user?.id?.split(':')[0];
   if (!userId) return client;
   return global.conns?.find((c) => c?.user?.id?.split(':')[0] === userId) || client;
+}
+
+export function remove(sock) {
+  if (!sock) return;
+  try { sock.ev.removeAllListeners(); } catch {}
+  try { sock.ws?.close(); } catch {}
+  try { sock.end?.(new Error('replaced')); } catch {}
+  try { sock.msgRetryCounterCache?.close(); } catch {}
+}
+
+const logger = pino({ level: "silent" });
+const versionCache = { value: null, expiresAt: 0 };
+async function getVersion() {
+  if (versionCache.value && Date.now() < versionCache.expiresAt) return versionCache.value;
+  try {
+    const latest = await fetchLatestBaileysVersion();
+    versionCache.value = latest.version;
+    versionCache.expiresAt = Date.now() + 60 * 60 * 1000;
+  } catch (e) {
+    if (!versionCache.value) versionCache.value = [2, 3000, 1033105955];
+  }
+  return versionCache.value;
 }
 
 function normalizePhone(input) {
@@ -46,28 +68,36 @@ export async function startSubBot(msg, client, caption = '', isCode = false, pho
   const sessionFolder = path.join(subsPath, id);
   const senderId = msg?.sender;
   const { state, saveCreds: saveCredsDB } = await useMultiFileAuthState(sessionFolder);
-  const { version } = await fetchLatestBaileysVersion();
+  const version = await getVersion();
   let saveCredsTimer = null;
   const saveCreds = () => { clearTimeout(saveCredsTimer); saveCredsTimer = setTimeout(saveCredsDB, 2000); };
+  const msgRetryCounterCache = new NodeCache({ stdTTL: 3600, checkperiod: 600, useClones: false });
   const msgStore = new Map();
   const msgLimit = 500;
   console.info = () => {};
   const socks = makeWASocket({
     version,
-    logger: pino({ level: 'silent' }),
+    logger,
     printQRInTerminal: false,
     browser: Browsers.windows('Chrome'),
-    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
-    shouldIgnoreJid: (jid) => jid.endsWith('@broadcast'),
-    markOnlineOnConnect: true,
-    generateHighQualityLinkPreview: true,
+    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger, createSignalCache()) },
+    markOnlineOnConnect: false,
     syncFullHistory: false,
-    keepAliveIntervalMs: 30_000,
+    shouldSyncHistoryMessage: () => false,
+    fireInitQueries: false,
+    generateHighQualityLinkPreview: false,
+    shouldIgnoreJid: (jid) => jid.endsWith('@broadcast'),
+    keepAliveIntervalMs: 30000,
+    connectTimeoutMs: 20000,
+    transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
+    emitOwnEvents: false,
     msgRetryCounterCache,
-    userDevicesCache,
+    cachedGroupMetadata: async (jid) => getCachedMeta(jid) ?? await socks.getCachedGroupMetadata?.(jid),
     getMessage: async (key) => msgStore.get(key.remoteJid + ':' + key.id),
   });
   patchGroupMetadata(socks);
+  instrumentSocket(socks);
+  socks.msgRetryCounterCache = msgRetryCounterCache;
   socks.isCommand = isCommand;
   socks.senderId = senderId;
   socks.chatId = chatId;
@@ -89,18 +119,21 @@ export async function startSubBot(msg, client, caption = '', isCode = false, pho
     if (!botReady) return;
     if (type !== 'notify') return;
     for (const raw of messages) {
+      if (raw?.message) beginMessage(raw);
       if (raw?.message && raw?.key?.id) {
         const sid = raw.key.remoteJid + ':' + raw.key.id;
         msgStore.set(sid, raw.message);
         if (msgStore.size > msgLimit) msgStore.delete(msgStore.keys().next().value);
       }
-      try {
-        if (!raw?.message || raw.key?.remoteJid === 'status@broadcast') continue;
-        if ((raw.messageTimestamp * 1000) < bootTime - 15_000) continue;
-        if (raw.message.ephemeralMessage) raw.message = raw.message.ephemeralMessage.message;
-        const m = await smsg(socks, raw);
-        if (typeof main === 'function') main(socks, m, messages).catch((err) => console.error('[ ✿  ]  Main Sub »', err?.message || err));
-      } catch (e) { console.log(e); }
+      void (async () => {
+        try {
+          if (!raw?.message || raw.key?.remoteJid === 'status@broadcast') return;
+          if ((raw.messageTimestamp * 1000) < bootTime - 15_000) return;
+          if (raw.message.ephemeralMessage) raw.message = raw.message.ephemeralMessage.message;
+          const m = await smsg(socks, raw);
+          if (typeof main === 'function') main(socks, m, messages).catch((err) => console.error('[ ✿  ]  Main Sub »', err?.message || err));
+        } catch (e) { console.log(e); }
+      })();
     }
   });
   try { await events(socks, msg); } catch (err) { console.log(chalk.gray(`[ EVENT ERROR  ]  → ${err}`)); }
@@ -130,6 +163,7 @@ export async function startSubBot(msg, client, caption = '', isCode = false, pho
     if (connection === 'close') {
       const botId = socks.userId || id;
       const reason = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.reason || 0;
+      remove(socks);
       const intentos = reintentos[botId] || 0;
       reintentos[botId] = intentos + 1;
       if ([401, 403].includes(reason)) {
