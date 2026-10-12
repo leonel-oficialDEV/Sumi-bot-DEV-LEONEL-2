@@ -36,9 +36,7 @@ const cmd = {
           const channel = video_info.author?.name || video_info.author || 'Desconocido'
           const formatText = isVideoCommand ? 'Video (MP4)' : 'Audio (MP3)'
 
-          const info_message = `
-⏜۪۪۪֟፝᷼︵᷼❀⏜۪۪݊᷼⋱᷼◌⃘۪۪۪ׄ𖹭᷼❀𖹭⃘۪۪۪ׄ◌᷼⋰۪۪݊᷼⏜۪۪᷼❀⏜
-
+          const info_message = `⏜۪۪۪֟፝᷼︵᷼❀⏜۪۪݊᷼⋱᷼◌⃘۪۪۪ׄ𖹭᷼❀𖹭⃘۪۪۪ׄ◌᷼⋰۪۪݊᷼⏜۪۪᷼❀⏜
 𔖮๋ׅꉹ᮫ִׁ۫❀̷̸᮫ִּׁ᳟፝֟࠭͠𐋕᮫ִׁ᷂𐴲᮫ִׁDescargando ${formatText} › *${title}*
 
 > ❖ Canal › *${channel}*
