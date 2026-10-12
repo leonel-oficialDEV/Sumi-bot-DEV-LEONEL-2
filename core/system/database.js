@@ -500,4 +500,18 @@ export function clearDB() {
     const INACTIVE_MS = 20 * 86400000;
     setInterval(() => {
       const now = Date.now();
-      for (const cu of stmt('SELECT 
+      for (const cu of stmt('SELECT chat_id, user_id, usedTime, lastCmd FROM chat_users').all()) {
+        const last = cu.lastCmd > 0 ? cu.lastCmd : (cu.usedTime ? new Date(JSON.parse(cu.usedTime)).getTime() : 0);
+        if (last === 0 || now - last > INACTIVE_MS) {
+          stmt('DELETE FROM chat_users WHERE chat_id = ? AND user_id = ?').run(cu.chat_id, cu.user_id);
+        }
+      }
+      for (const u of stmt('SELECT id FROM users WHERE exp = 0 AND id NOT IN (SELECT user_id FROM chat_users)').all()) {
+        stmt('DELETE FROM users WHERE id = ?').run(u.id);
+      }
+    }, 86400000);
+  }
+}
+
+
+export default { initDB, getUser, setUser, updateUser, getChat, setChat, getChatUser, setChatUser, updateChatUser, getSettings, setSettings, updateSettings, recordCommand, getCharacter, setCharacter, getStickersPack, setStickersPack, deletedb, setCreate, clearCache, clearDB, db }; 
