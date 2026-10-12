@@ -143,8 +143,8 @@ export const defSets = {
   banner: 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
   icon: 'https://raw.githubusercontent.com/leonel-oficialDEV/Fotos-/main/Imagen/IMG-20260929-WA0199.jpg',
   currency: 'Yenes',
-  namebot: 'Yuki',
-  botname: 'Yuki Suou',
+  namebot: '⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪𝚂͟𝚄͟𝙼͟𝙸͟ 𝚂͟𝙰͟𝙺͟𝚄͟𝚁͟𝙰͟𝚂͟𝙰͟𝚆͟𝙰݊⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪',
+  botname: '⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪𝚂͟𝚄͟𝙼͟𝙸͟ 𝚂͟𝙰͟𝙺͟𝚄͟𝚁͟𝙰͟𝚂͟𝙰͟𝚆͟𝙰݊⬪࣪ꥈ⃘𑁍⃪࣭۪ٜ݊݊݊݊݊໑ٜ࣪',
   owner: ''
 };
 
