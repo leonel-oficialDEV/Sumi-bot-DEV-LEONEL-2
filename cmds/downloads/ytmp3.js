@@ -43,7 +43,8 @@ const cmd = {
 > ⴵ Duración › *${video_info.timestamp || 'Desconocido'}*
 > ❀ Vistas › *${views}*
 > ✩ Publicado › *${video_info.ago || 'Desconocido'}*
-> ❒ Enlace › *${url}*`
+> ❒ Enlace › *${url}*
+𝙐𝙣 𝙢𝙤𝙢𝙚𝙣𝙩𝙤 𝙙𝙚𝙨𝙘𝙖𝙧𝙜𝙖𝙣𝙙𝙤`
 
           if (thumbnail) {
             await sock.sendMessage(msg.chat, {
