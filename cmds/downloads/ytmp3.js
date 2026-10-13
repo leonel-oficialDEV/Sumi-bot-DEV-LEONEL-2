@@ -36,8 +36,7 @@ const cmd = {
           const channel = video_info.author?.name || video_info.author || 'Desconocido'
           const formatText = isVideoCommand ? 'Video (MP4)' : 'Audio (MP3)'
 
-          const info_message =`➩
-Descargando ${formatText} › *${title}*
+          const info_message = `➩ Descargando ${formatText} › *${title}*
 
 > ❖ Canal › *${channel}*
 > ⴵ Duración › *${video_info.timestamp || 'Desconocido'}*
@@ -137,9 +136,8 @@ async function getVideoInfo(input, video_id) {
   return search.videos?.[0] || search.all?.find(v => v.type === 'video') || null
 }
 
-
 async function getAudioFromApi(url) {
-  const api_url = `https://mediahub-software-api.vercel.app/api/public/download/ytmp3?url=${encodeURIComponent(url)}`
+  const api_url = `https://api.delirius.online/download/ytmp3?url=${encodeURIComponent(url)}`
 
   const res = await fetch(api_url, {
     headers: { 'accept': 'application/json' }
@@ -149,12 +147,11 @@ async function getAudioFromApi(url) {
 
   const json = await res.json()
 
-
-  if (!json?.status || !json?.data?.downloadUrl) {
+  if (!json?.status || !json?.data?.download) {
     throw new Error('No se encontró el enlace de descarga en la API.')
   }
 
-  const audio_res = await fetch(json.data.downloadUrl)
+  const audio_res = await fetch(json.data.download)
   if (!audio_res.ok) throw new Error(`No se pudo descargar el audio: HTTP ${audio_res.status}`)
 
   const buffer = await audio_res.buffer()
