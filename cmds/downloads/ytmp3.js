@@ -1,3 +1,4 @@
+
 import yts from 'yt-search'
 import fetch from 'node-fetch'
 
@@ -36,7 +37,7 @@ const cmd = {
           const channel = video_info.author?.name || video_info.author || 'Desconocido'
           const formatText = isVideoCommand ? 'Video (MP4)' : 'Audio (MP3)'
 
-          const info_message =`➩ Descargando ${formatText} › *${title}*
+                    const info_message = `➩ Descargando › *${title}*
 
 > ❖ Canal › *${channel}*
 > ⴵ Duración › *${video_info.timestamp || 'Desconocido'}*
